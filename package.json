@@ -1,0 +1,23 @@
+{
+  "name": "dacs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nguyenkhai05/dacs.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nguyenkhai05/dacs/issues"
+  },
+  "homepage": "https://github.com/nguyenkhai05/dacs#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
