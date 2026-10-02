@@ -1,12 +1,14 @@
-
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { createObserveModule } from '@nestjs/observe';
+
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { PitchesModule } from './pitches/pitches.module.js';
+import { AuthModule } from './auth/auth.module.js';
 
-export const { ObserveModule, ObserveInstrument } = createObserveModule();
+export const { ObserveModule, ObserveInstrument } =
+  createObserveModule();
 
 @Module({
   imports: [
@@ -21,6 +23,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     }),
 
     PitchesModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
