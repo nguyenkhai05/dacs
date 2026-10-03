@@ -4,7 +4,7 @@ import {
     OnModuleDestroy,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import mysql, { Pool } from 'mysql2/promise';
+import mysql, { Pool, PoolConnection } from 'mysql2/promise';
 
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
@@ -50,6 +50,27 @@ export class DatabaseService implements OnModuleDestroy {
     ): Promise<T> {
         const [rows] = await this.pool.execute(sql, values);
         return rows as T;
+    }
+
+    async transaction<T>(
+        callback: (connection: PoolConnection) => Promise<T>,
+    ): Promise<T> {
+        const connection = await this.pool.getConnection();
+
+        try {
+            await connection.beginTransaction();
+
+            const result = await callback(connection);
+
+            await connection.commit();
+
+            return result;
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
     }
 
     async onModuleDestroy(): Promise<void> {
