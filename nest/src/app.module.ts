@@ -7,6 +7,7 @@ import { AppService } from './app.service.js';
 import { PitchesModule } from './pitches/pitches.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { HomeModule } from './home/home.module.js';
+import { PaymentsModule } from './payments/payments.module.js';
 
 export const { ObserveModule, ObserveInstrument } =
   createObserveModule();
@@ -26,6 +27,7 @@ export const { ObserveModule, ObserveInstrument } =
     PitchesModule,
     AuthModule,
     HomeModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

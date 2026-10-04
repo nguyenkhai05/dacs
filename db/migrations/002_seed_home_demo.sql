@@ -1,3 +1,4 @@
+SET NAMES utf8mb4;
 USE football_pitch_db;
 
 INSERT IGNORE INTO pitch_categories (category_name, description) VALUES
@@ -16,14 +17,21 @@ INSERT IGNORE INTO pitches (category_id, pitch_name, image_url)
 SELECT category_id, 'Sân 7 - Số 1', '/images/pitches/san7-so1.jpg'
 FROM pitch_categories WHERE category_name = 'Sân 7 người';
 
--- Khung giá (các khung không được chồng lấn trong cùng một loại sân)
+SET @cat5 = (SELECT category_id FROM pitch_categories WHERE category_name = 'Sân 5 người');
+SET @cat7 = (SELECT category_id FROM pitch_categories WHERE category_name = 'Sân 7 người');
+
 INSERT INTO price_slots (category_id, start_time, end_time, price_per_hour)
-SELECT c.category_id, s.start_time, s.end_time, s.price
-FROM pitch_categories c
-JOIN (
-    SELECT 'Sân 5 người' AS name, '06:00:00' AS start_time, '16:00:00' AS end_time, 200000 AS price
-    UNION ALL SELECT 'Sân 5 người', '16:00:00', '22:00:00', 250000
-    UNION ALL SELECT 'Sân 7 người', '06:00:00', '16:00:00', 350000
-    UNION ALL SELECT 'Sân 7 người', '16:00:00', '22:00:00', 420000
-) s ON s.name = c.category_name
-WHERE NOT EXISTS (SELECT 1 FROM price_slots ps WHERE ps.category_id = c.category_id);
+SELECT @cat5, '06:00:00', '16:00:00', 200000
+WHERE NOT EXISTS (SELECT 1 FROM price_slots WHERE category_id = @cat5);
+
+INSERT INTO price_slots (category_id, start_time, end_time, price_per_hour)
+SELECT @cat5, '16:00:00', '22:00:00', 250000
+WHERE (SELECT COUNT(*) FROM price_slots WHERE category_id = @cat5) = 1;
+
+INSERT INTO price_slots (category_id, start_time, end_time, price_per_hour)
+SELECT @cat7, '06:00:00', '16:00:00', 350000
+WHERE NOT EXISTS (SELECT 1 FROM price_slots WHERE category_id = @cat7);
+
+INSERT INTO price_slots (category_id, start_time, end_time, price_per_hour)
+SELECT @cat7, '16:00:00', '22:00:00', 420000
+WHERE (SELECT COUNT(*) FROM price_slots WHERE category_id = @cat7) = 1;
