@@ -9,6 +9,7 @@ import { HomeModule } from './home/home.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
 import { PitchesModule } from './pitches/pitches.module.js';
 import { ServicesModule } from './services/services.module.js';
+import { UsersModule } from './users/users.module.js';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ServicesModule } from './services/services.module.js';
     ServicesModule,
     BookingsModule,
     PaymentsModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
