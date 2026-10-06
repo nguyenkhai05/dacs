@@ -11,6 +11,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { BookingsService } from './bookings.service.js';
 import { CreateBookingDto } from './dto/create-booking.dto.js';
+import { MyBookingsQueryDto } from './dto/my-bookings-query.dto.js';
 
 @Controller('bookings')
 export class BookingsController {
@@ -18,6 +19,15 @@ export class BookingsController {
         private readonly bookingsService: BookingsService,
         private readonly jwtService: JwtService,
     ) { }
+
+    @Get('my')
+    async getMyBookings(
+        @Headers('authorization') authorization: string | undefined,
+        @Query() query: MyBookingsQueryDto,
+    ) {
+        const customerId = await this.getCustomerId(authorization);
+        return this.bookingsService.getMyBookings(customerId, query);
+    }
 
     @Get('availability')
     async getAvailability(
@@ -32,22 +42,42 @@ export class BookingsController {
         @Headers('authorization') authorization: string | undefined,
         @Body() dto: CreateBookingDto,
     ) {
+        const customerId = await this.getCustomerId(authorization);
+        return this.bookingsService.create(customerId, dto);
+    }
+    private async getCustomerId(
+        authorization: string | undefined,
+    ): Promise<number> {
         if (!authorization?.startsWith('Bearer ')) {
-            throw new UnauthorizedException('Vui lòng đăng nhập để đặt sân.');
+            throw new UnauthorizedException(
+                'Vui lòng đăng nhập để thực hiện thao tác này.',
+            );
         }
+
         const token = authorization.slice(7).trim();
-        if (!token) throw new UnauthorizedException('Token không hợp lệ.');
+        if (!token) {
+            throw new UnauthorizedException('Token không hợp lệ.');
+        }
 
         let payload: { sub?: unknown };
         try {
-            payload = await this.jwtService.verifyAsync<{ sub?: unknown }>(token);
+            payload = await this.jwtService.verifyAsync<{ sub?: unknown }>(
+                token,
+            );
         } catch {
-            throw new UnauthorizedException('Token không hợp lệ hoặc đã hết hạn.');
+            throw new UnauthorizedException(
+                'Token không hợp lệ hoặc đã hết hạn.',
+            );
         }
+
         const customerId = Number(payload.sub);
         if (!Number.isSafeInteger(customerId) || customerId <= 0) {
-            throw new BadRequestException('Thông tin người dùng trong token không hợp lệ.');
+            throw new BadRequestException(
+                'Thông tin người dùng trong token không hợp lệ.',
+            );
         }
-        return this.bookingsService.create(customerId, dto);
+
+        return customerId;
     }
+
 }

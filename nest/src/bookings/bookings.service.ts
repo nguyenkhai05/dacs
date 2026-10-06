@@ -8,6 +8,7 @@ import {
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { DatabaseService } from '../database/database.service.js';
 import { CreateBookingDto } from './dto/create-booking.dto.js';
+import { MyBookingsQueryDto } from './dto/my-bookings-query.dto.js';
 
 interface AvailabilityPitchRow extends RowDataPacket {
     pitch_id: number;
@@ -376,6 +377,130 @@ export class BookingsService {
                 (slot) => slot.available,
             ).length,
             slots,
+        };
+    }
+
+    // Lấy lịch đặt của chính khách hàng đang đăng nhập.
+    // API này phục vụ màn "Lịch đặt của tôi".
+    async getMyBookings(
+        customerId: number,
+        query: MyBookingsQueryDto,
+    ) {
+        const customer = await this.databaseService.query<RowDataPacket[]>(
+            `SELECT user_id
+             FROM customers
+             WHERE user_id = ?`,
+            [customerId],
+        );
+
+        if (customer.length === 0) {
+            throw new BadRequestException(
+                'Tài khoản chưa có hồ sơ khách hàng.',
+            );
+        }
+
+        const page = query.page ?? 1;
+        const limit = query.limit ?? 10;
+        const offset = (page - 1) * limit;
+        const statusCondition = query.status
+            ? 'AND b.status = ?'
+            : '';
+        const params = query.status
+            ? [customerId, query.status]
+            : [customerId];
+
+        const countRows = await this.databaseService.query<
+            (RowDataPacket & { total: number })[]
+        >(
+            `SELECT COUNT(*) AS total
+             FROM bookings b
+             WHERE b.customer_id = ?
+               ${statusCondition}`,
+            params,
+        );
+
+        const total = Number(countRows[0]?.total ?? 0);
+
+        const bookings = await this.databaseService.query<RowDataPacket[]>(
+            `SELECT
+                b.booking_id,
+                CONCAT(
+                    'BK-',
+                    DATE_FORMAT(b.booking_date, '%Y%m%d'),
+                    '-',
+                    LPAD(b.booking_id, 5, '0')
+                ) AS booking_code,
+                b.pitch_id,
+                p.pitch_name,
+                b.booking_date,
+                TIME_FORMAT(b.start_time, '%H:%i') AS start_time,
+                TIME_FORMAT(b.end_time, '%H:%i') AS end_time,
+                b.total_pitch_price,
+                b.status,
+                b.customer_note,
+                b.created_at,
+                b.updated_at
+             FROM bookings b
+             INNER JOIN pitches p ON p.pitch_id = b.pitch_id
+             WHERE b.customer_id = ?
+               ${statusCondition}
+             ORDER BY b.booking_date DESC, b.start_time DESC, b.booking_id DESC
+             LIMIT ${limit} OFFSET ${offset}`,
+            params,
+        );
+
+        const summaryRows = await this.databaseService.query<RowDataPacket[]>(
+            `SELECT
+                COUNT(*) AS total_bookings,
+                SUM(
+                    CASE
+                        WHEN b.status IN ('Pending', 'Confirmed', 'CheckedIn', 'Playing')
+                         AND (
+                             b.booking_date > CURDATE()
+                             OR (
+                                 b.booking_date = CURDATE()
+                                 AND b.end_time > CURTIME()
+                             )
+                         )
+                        THEN 1 ELSE 0
+                    END
+                ) AS upcoming_bookings,
+                SUM(CASE WHEN b.status = 'Completed' THEN 1 ELSE 0 END) AS completed_bookings,
+                SUM(CASE WHEN b.status = 'Cancelled' THEN 1 ELSE 0 END) AS cancelled_bookings,
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN b.status <> 'Cancelled' THEN b.total_pitch_price
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ) AS total_booked_amount
+             FROM bookings b
+             WHERE b.customer_id = ?`,
+            [customerId],
+        );
+
+        const summary = summaryRows[0] ?? {};
+
+        return {
+            summary: {
+                total_bookings: Number(summary.total_bookings ?? 0),
+                upcoming_bookings: Number(summary.upcoming_bookings ?? 0),
+                completed_bookings: Number(summary.completed_bookings ?? 0),
+                cancelled_bookings: Number(summary.cancelled_bookings ?? 0),
+                total_booked_amount: Number(summary.total_booked_amount ?? 0),
+            },
+            filters: {
+                status: query.status ?? null,
+            },
+            pagination: {
+                page,
+                limit,
+                total,
+                total_pages: Math.ceil(total / limit),
+            },
+            bookings,
         };
     }
 
