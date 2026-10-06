@@ -19,10 +19,14 @@ import { AuthService } from './auth.service.js';
           throw new Error('Thiếu JWT_SECRET trong file .env');
         }
 
+        // JWT_EXPIRES_IN: số giây (vd 3600) hoặc chuỗi như 1h, 7d. Mặc định 1h.
+        const raw = configService.get<string>('JWT_EXPIRES_IN')?.trim() || '1h';
+        const expiresIn = /^\d+$/.test(raw) ? Number(raw) : raw;
+
         return {
           secret,
           signOptions: {
-            expiresIn: 3600,
+            expiresIn: expiresIn as number,
           },
         };
       },

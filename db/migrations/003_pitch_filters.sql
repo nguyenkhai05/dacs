@@ -6,5 +6,3 @@ ALTER TABLE pitches
     ADD COLUMN district VARCHAR(100) NULL AFTER address,
     ADD COLUMN amenities JSON NULL AFTER district,
     ADD INDEX idx_pitches_district (district);
-
-

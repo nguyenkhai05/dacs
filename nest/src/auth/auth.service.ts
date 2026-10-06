@@ -4,6 +4,8 @@ import {
     UnauthorizedException,
     ConflictException,
     BadRequestException,
+    HttpException,
+    HttpStatus,
     InternalServerErrorException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -12,6 +14,7 @@ import * as bcrypt from 'bcrypt';
 import { DatabaseService } from '../database/database.service.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
+import { LoginRateLimiter } from './login-rate-limiter.js';
 
 interface UserRow {
     user_id: number;
@@ -31,16 +34,41 @@ interface IdRow {
 
 @Injectable()
 export class AuthService {
+    private readonly loginLimiter = new LoginRateLimiter();
+
     constructor(
         private readonly database: DatabaseService,
         private readonly jwtService: JwtService,
     ) { }
 
-    // ĐĂNG NHẬP
+    // ĐĂNG NHẬP (email hoặc số điện thoại)
     async login(loginDto: LoginDto) {
-        const { email, password } = loginDto;
+        const { password } = loginDto;
+        const identifier = (
+            loginDto.identifier ??
+            loginDto.email ??
+            ''
+        ).trim();
 
-        // 1. Tìm tài khoản theo email
+        if (!identifier) {
+            throw new BadRequestException(
+                'Vui lòng nhập email hoặc số điện thoại',
+            );
+        }
+
+        // 0. Chặn dò mật khẩu: sai quá nhiều lần thì tạm khóa
+        const limitKey = identifier.toLowerCase();
+        const retryAfter = this.loginLimiter.retryAfterSeconds(limitKey);
+
+        if (retryAfter > 0) {
+            throw new HttpException(
+                `Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau ${Math.ceil(retryAfter / 60)} phút`,
+                HttpStatus.TOO_MANY_REQUESTS,
+            );
+        }
+
+        // 1. Tìm tài khoản theo email hoặc số điện thoại
+        const isEmail = identifier.includes('@');
         const users = await this.database.query<UserRow[]>(
             `
             SELECT
@@ -50,18 +78,19 @@ export class AuthService {
                 password_hash,
                 is_active
             FROM users
-            WHERE email = ?
+            WHERE ${isEmail ? 'email' : 'phone_number'} = ?
             LIMIT 1
             `,
-            [email],
+            [identifier],
         );
 
         const user = users[0];
 
         // 2. Kiểm tra tài khoản
         if (!user || !user.is_active) {
+            this.loginLimiter.recordFailure(limitKey);
             throw new UnauthorizedException(
-                'Email hoặc mật khẩu không chính xác',
+                'Email/số điện thoại hoặc mật khẩu không chính xác',
             );
         }
 
@@ -72,10 +101,13 @@ export class AuthService {
         );
 
         if (!isPasswordValid) {
+            this.loginLimiter.recordFailure(limitKey);
             throw new UnauthorizedException(
-                'Email hoặc mật khẩu không chính xác',
+                'Email/số điện thoại hoặc mật khẩu không chính xác',
             );
         }
+
+        this.loginLimiter.reset(limitKey);
 
         // 4. Lấy vai trò của tài khoản
         const roles = await this.database.query<RoleRow[]>(

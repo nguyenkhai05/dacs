@@ -4,10 +4,11 @@ import { AuthModule } from '../auth/auth.module.js';
 import { DatabaseModule } from '../database/database.module.js';
 import { BookingsController } from './bookings.controller.js';
 import { BookingsService } from './bookings.service.js';
+import { MyBookingsService } from './my-bookings.service.js';
 
 @Module({
   imports: [DatabaseModule, AuthModule],
   controllers: [BookingsController],
-  providers: [BookingsService],
+  providers: [BookingsService, MyBookingsService],
 })
 export class BookingsModule { }

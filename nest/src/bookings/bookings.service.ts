@@ -3,12 +3,26 @@ import {
     BadRequestException,
     ConflictException,
     Injectable,
+    InternalServerErrorException,
     NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import type { PoolConnection } from 'mysql2/promise';
+import { getVietnamNow } from '../common/time.util.js';
 import { DatabaseService } from '../database/database.service.js';
+import { buildTransferContent } from '../payments/payments.utils.js';
+import {
+    calculateRefund,
+    parseDepositPercent,
+    parseHoldMinutes,
+    round2,
+} from './booking-policy.js';
 import { CreateBookingDto } from './dto/create-booking.dto.js';
-import { MyBookingsQueryDto } from './dto/my-bookings-query.dto.js';
+import type {
+    BookingServiceItemDto,
+    QuoteBookingDto,
+} from './dto/quote-booking.dto.js';
 
 interface AvailabilityPitchRow extends RowDataPacket {
     pitch_id: number;
@@ -39,10 +53,39 @@ interface TimeRow extends RowDataPacket {
     end_time: string;
 }
 
+interface ServiceRow extends RowDataPacket {
+    service_id: number;
+    service_name: string;
+    unit: string;
+    price: string | number;
+    stock_quantity: number;
+    is_active: number;
+}
+
+export interface ServiceLine {
+    service_id: number;
+    service_name: string;
+    unit: string;
+    quantity: number;
+    unit_price: number;
+    line_total: number;
+}
+
+interface PreparedBooking {
+    pitch: PitchRow;
+    pitchPrice: number;
+    lines: ServiceLine[];
+    servicesTotal: number;
+    total: number;
+}
+
+const MAX_SERVICE_QUANTITY = 99;
+
 @Injectable()
 export class BookingsService {
     constructor(
         private readonly databaseService: DatabaseService,
+        private readonly config: ConfigService,
     ) { }
 
     // Chuyển giờ HH:mm hoặc HH:mm:ss thành số phút.
@@ -81,15 +124,9 @@ export class BookingsService {
         }
     }
 
-    // Lấy ngày hiện tại theo đồng hồ của máy chạy NestJS.
+    // Ngày hiện tại theo giờ Việt Nam (không phụ thuộc múi giờ máy chủ).
     private getToday(): string {
-        const now = new Date();
-
-        return [
-            now.getFullYear(),
-            String(now.getMonth() + 1).padStart(2, '0'),
-            String(now.getDate()).padStart(2, '0'),
-        ].join('-');
+        return getVietnamNow().date;
     }
 
     // Kiểm tra ngày và giờ đặt sân có nằm trong tương lai.
@@ -97,10 +134,7 @@ export class BookingsService {
         bookingDate: string,
         startMinutes: number,
     ): void {
-        const today = this.getToday();
-        const now = new Date();
-        const currentMinutes =
-            now.getHours() * 60 + now.getMinutes();
+        const { date: today, minutes: currentMinutes } = getVietnamNow();
 
         if (
             bookingDate < today ||
@@ -115,7 +149,9 @@ export class BookingsService {
         }
     }
 
-    private validateInput(dto: CreateBookingDto): void {
+    private validateInput(
+        dto: QuoteBookingDto & { customer_note?: string },
+    ): void {
         if (
             !Number.isSafeInteger(dto.pitch_id) ||
             dto.pitch_id <= 0
@@ -302,10 +338,7 @@ export class BookingsService {
             available: boolean;
         }[] = [];
 
-        const now = new Date();
-        const currentMinutes =
-            now.getHours() * 60 + now.getMinutes();
-        const today = this.getToday();
+        const { date: today, minutes: currentMinutes } = getVietnamNow();
 
         const formatTime = (minutes: number): string => {
             const hours = Math.floor(minutes / 60);
@@ -380,136 +413,249 @@ export class BookingsService {
         };
     }
 
-    // Lấy lịch đặt của chính khách hàng đang đăng nhập.
-    // API này phục vụ màn "Lịch đặt của tôi".
-    async getMyBookings(
-        customerId: number,
-        query: MyBookingsQueryDto,
-    ) {
-        const customer = await this.databaseService.query<RowDataPacket[]>(
-            `SELECT user_id
-             FROM customers
-             WHERE user_id = ?`,
-            [customerId],
+    // ---------------------------------------------------------------
+    // Cấu hình tiền cọc / giữ chỗ (đọc mỗi lần để app vẫn khởi động khi thiếu)
+    // ---------------------------------------------------------------
+
+    private get depositPercent(): number {
+        try {
+            return parseDepositPercent(
+                this.config.get<string>('DEPOSIT_PERCENT'),
+            );
+        } catch (error) {
+            throw new InternalServerErrorException((error as Error).message);
+        }
+    }
+
+    private get holdMinutes(): number {
+        try {
+            return parseHoldMinutes(
+                this.config.get<string>('PAYMENT_HOLD_MINUTES'),
+            );
+        } catch (error) {
+            throw new InternalServerErrorException((error as Error).message);
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Dịch vụ đi kèm
+    // ---------------------------------------------------------------
+
+    // Gộp các dòng trùng service_id thành một (cộng số lượng).
+    private mergeServiceItems(
+        items: BookingServiceItemDto[],
+    ): Map<number, number> {
+        const merged = new Map<number, number>();
+
+        for (const item of items) {
+            const quantity = (merged.get(item.service_id) ?? 0) + item.quantity;
+
+            if (quantity > MAX_SERVICE_QUANTITY) {
+                throw new BadRequestException(
+                    `Số lượng mỗi dịch vụ tối đa ${MAX_SERVICE_QUANTITY}.`,
+                );
+            }
+
+            merged.set(item.service_id, quantity);
+        }
+
+        return merged;
+    }
+
+    /**
+     * Đọc các dịch vụ khách chọn, kiểm tra còn kinh doanh và đủ tồn kho.
+     * lock = true (khi tạo đơn): khóa dòng theo thứ tự service_id để hai đơn
+     * cùng mua một món không bị deadlock hay bán lố tồn kho.
+     */
+    private async loadServiceLines(
+        connection: PoolConnection,
+        items: BookingServiceItemDto[],
+        lock: boolean,
+    ): Promise<ServiceLine[]> {
+        const merged = this.mergeServiceItems(items);
+
+        if (merged.size === 0) {
+            return [];
+        }
+
+        const ids = [...merged.keys()].sort((a, b) => a - b);
+        const placeholders = ids.map(() => '?').join(', ');
+
+        const [rows] = await connection.execute<ServiceRow[]>(
+            `SELECT service_id, service_name, unit, price, stock_quantity, is_active
+             FROM services
+             WHERE service_id IN (${placeholders})
+             ORDER BY service_id ASC
+             ${lock ? 'FOR UPDATE' : ''}`,
+            ids,
         );
 
-        if (customer.length === 0) {
+        const byId = new Map(rows.map((row) => [Number(row.service_id), row]));
+        const lines: ServiceLine[] = [];
+
+        for (const id of ids) {
+            const row = byId.get(id);
+            const quantity = merged.get(id) as number;
+
+            if (!row) {
+                throw new BadRequestException(
+                    `Dịch vụ #${id} không tồn tại.`,
+                );
+            }
+
+            if (!row.is_active) {
+                throw new BadRequestException(
+                    `Dịch vụ "${row.service_name}" hiện không kinh doanh.`,
+                );
+            }
+
+            if (Number(row.stock_quantity) < quantity) {
+                throw new ConflictException(
+                    `Dịch vụ "${row.service_name}" chỉ còn ${Number(row.stock_quantity)} ${row.unit}.`,
+                );
+            }
+
+            const unitPrice = Number(row.price);
+
+            lines.push({
+                service_id: id,
+                service_name: row.service_name,
+                unit: row.unit,
+                quantity,
+                unit_price: unitPrice,
+                line_total: round2(quantity * unitPrice),
+            });
+        }
+
+        return lines;
+    }
+
+    /**
+     * Kiểm tra sân + khung giờ + dịch vụ và tính tiền. Dùng chung cho
+     * "tính tiền thử" (lock = false) và "tạo đơn" (lock = true).
+     */
+    private async prepare(
+        connection: PoolConnection,
+        dto: QuoteBookingDto,
+        lock: boolean,
+    ): Promise<PreparedBooking> {
+        const [pitches] = await connection.execute<PitchRow[]>(
+            `SELECT pitch_id, category_id, status
+             FROM pitches
+             WHERE pitch_id = ?
+             ${lock ? 'FOR UPDATE' : ''}`,
+            [dto.pitch_id],
+        );
+
+        const pitch = pitches[0];
+
+        if (!pitch) {
+            throw new NotFoundException('Không tìm thấy sân.');
+        }
+
+        if (pitch.status !== 'Available') {
+            throw new BadRequestException('Sân hiện không khả dụng.');
+        }
+
+        if (pitch.category_id === null) {
             throw new BadRequestException(
-                'Tài khoản chưa có hồ sơ khách hàng.',
+                'Sân chưa được phân loại để tính giá.',
             );
         }
 
-        const page = query.page ?? 1;
-        const limit = query.limit ?? 10;
-        const offset = (page - 1) * limit;
-        const statusCondition = query.status
-            ? 'AND b.status = ?'
-            : '';
-        const params = query.status
-            ? [customerId, query.status]
-            : [customerId];
-
-        const countRows = await this.databaseService.query<
-            (RowDataPacket & { total: number })[]
-        >(
-            `SELECT COUNT(*) AS total
-             FROM bookings b
-             WHERE b.customer_id = ?
-               ${statusCondition}`,
-            params,
+        const [overlaps] = await connection.execute<TimeRow[]>(
+            `SELECT start_time, end_time
+             FROM bookings
+             WHERE pitch_id = ?
+               AND booking_date = ?
+               AND status IN (
+                   'Pending', 'Confirmed', 'CheckedIn', 'Playing'
+               )
+               AND start_time < ?
+               AND end_time > ?
+             LIMIT 1`,
+            [dto.pitch_id, dto.booking_date, dto.end_time, dto.start_time],
         );
 
-        const total = Number(countRows[0]?.total ?? 0);
+        if (overlaps.length > 0) {
+            throw new ConflictException(
+                'Sân đã có đơn đặt trùng khung giờ.',
+            );
+        }
 
-        const bookings = await this.databaseService.query<RowDataPacket[]>(
-            `SELECT
-                b.booking_id,
-                CONCAT(
-                    'BK-',
-                    DATE_FORMAT(b.booking_date, '%Y%m%d'),
-                    '-',
-                    LPAD(b.booking_id, 5, '0')
-                ) AS booking_code,
-                b.pitch_id,
-                p.pitch_name,
-                b.booking_date,
-                TIME_FORMAT(b.start_time, '%H:%i') AS start_time,
-                TIME_FORMAT(b.end_time, '%H:%i') AS end_time,
-                b.total_pitch_price,
-                b.status,
-                b.customer_note,
-                b.created_at,
-                b.updated_at
-             FROM bookings b
-             INNER JOIN pitches p ON p.pitch_id = b.pitch_id
-             WHERE b.customer_id = ?
-               ${statusCondition}
-             ORDER BY b.booking_date DESC, b.start_time DESC, b.booking_id DESC
-             LIMIT ${limit} OFFSET ${offset}`,
-            params,
+        const pitchPrice = await this.calculatePrice(
+            connection,
+            pitch.category_id,
+            dto.start_time,
+            dto.end_time,
         );
 
-        const summaryRows = await this.databaseService.query<RowDataPacket[]>(
-            `SELECT
-                COUNT(*) AS total_bookings,
-                SUM(
-                    CASE
-                        WHEN b.status IN ('Pending', 'Confirmed', 'CheckedIn', 'Playing')
-                         AND (
-                             b.booking_date > CURDATE()
-                             OR (
-                                 b.booking_date = CURDATE()
-                                 AND b.end_time > CURTIME()
-                             )
-                         )
-                        THEN 1 ELSE 0
-                    END
-                ) AS upcoming_bookings,
-                SUM(CASE WHEN b.status = 'Completed' THEN 1 ELSE 0 END) AS completed_bookings,
-                SUM(CASE WHEN b.status = 'Cancelled' THEN 1 ELSE 0 END) AS cancelled_bookings,
-                COALESCE(
-                    SUM(
-                        CASE
-                            WHEN b.status <> 'Cancelled' THEN b.total_pitch_price
-                            ELSE 0
-                        END
-                    ),
-                    0
-                ) AS total_booked_amount
-             FROM bookings b
-             WHERE b.customer_id = ?`,
-            [customerId],
+        const lines = await this.loadServiceLines(
+            connection,
+            dto.services ?? [],
+            lock,
         );
-
-        const summary = summaryRows[0] ?? {};
+        const servicesTotal = round2(
+            lines.reduce((sum, line) => sum + line.line_total, 0),
+        );
 
         return {
-            summary: {
-                total_bookings: Number(summary.total_bookings ?? 0),
-                upcoming_bookings: Number(summary.upcoming_bookings ?? 0),
-                completed_bookings: Number(summary.completed_bookings ?? 0),
-                cancelled_bookings: Number(summary.cancelled_bookings ?? 0),
-                total_booked_amount: Number(summary.total_booked_amount ?? 0),
-            },
-            filters: {
-                status: query.status ?? null,
-            },
-            pagination: {
-                page,
-                limit,
-                total,
-                total_pages: Math.ceil(total / limit),
-            },
-            bookings,
+            pitch,
+            pitchPrice,
+            lines,
+            servicesTotal,
+            total: round2(pitchPrice + servicesTotal),
         };
     }
 
-    // Tạo đơn đặt sân hiện có.
+    private buildAmounts(prepared: PreparedBooking) {
+        const depositPercent = this.depositPercent;
+        const deposit = calculateRefund(prepared.total, depositPercent);
+
+        return {
+            pitch_total: prepared.pitchPrice,
+            services_total: prepared.servicesTotal,
+            total_amount: prepared.total,
+            deposit_percent: depositPercent,
+            deposit_amount: deposit,
+            remaining_amount: round2(prepared.total - deposit),
+        };
+    }
+
+    // ---------------------------------------------------------------
+    // Màn 07: tính tiền thử (chưa tạo đơn, không giữ sân)
+    // ---------------------------------------------------------------
+
+    async quote(dto: QuoteBookingDto) {
+        this.validateInput(dto);
+
+        this.validateFutureBooking(
+            dto.booking_date,
+            this.toMinutes(dto.start_time),
+        );
+
+        const prepared = await this.databaseService.transaction(
+            (connection) => this.prepare(connection, dto, false),
+        );
+
+        return {
+            pitch_id: dto.pitch_id,
+            booking_date: dto.booking_date,
+            start_time: dto.start_time,
+            end_time: dto.end_time,
+            services: prepared.lines,
+            ...this.buildAmounts(prepared),
+        };
+    }
+
+    // ---------------------------------------------------------------
+    // Màn 07: tạo đơn đặt sân (kèm dịch vụ đi kèm)
+    // ---------------------------------------------------------------
+
     async create(customerId: number, dto: CreateBookingDto) {
         this.validateInput(dto);
 
         const start = this.toMinutes(dto.start_time);
-        const end = this.toMinutes(dto.end_time);
 
         const customer = await this.databaseService.query<
             RowDataPacket[]
@@ -528,104 +674,89 @@ export class BookingsService {
 
         this.validateFutureBooking(dto.booking_date, start);
 
+        // Đọc cấu hình trước khi mở transaction để lỗi cấu hình không giữ khóa
+        const holdMinutes = this.holdMinutes;
+        void this.depositPercent; // kiểm tra cấu hình cọc hợp lệ
+
         return this.databaseService.transaction(async (connection) => {
-            const [pitches] = await connection.execute<PitchRow[]>(
-                `SELECT pitch_id, category_id, status
-                 FROM pitches
-                 WHERE pitch_id = ?
-                 FOR UPDATE`,
-                [dto.pitch_id],
-            );
-
-            const pitch = pitches[0];
-
-            if (!pitch) {
-                throw new NotFoundException('Không tìm thấy sân.');
-            }
-
-            if (pitch.status !== 'Available') {
-                throw new BadRequestException(
-                    'Sân hiện không khả dụng.',
-                );
-            }
-
-            if (pitch.category_id === null) {
-                throw new BadRequestException(
-                    'Sân chưa được phân loại để tính giá.',
-                );
-            }
-
-            const [overlaps] = await connection.execute<TimeRow[]>(
-                `SELECT start_time, end_time
-                 FROM bookings
-                 WHERE pitch_id = ?
-                   AND booking_date = ?
-                   AND status IN (
-                       'Pending', 'Confirmed', 'CheckedIn', 'Playing'
-                   )
-                   AND start_time < ?
-                   AND end_time > ?
-                 LIMIT 1`,
-                [
-                    dto.pitch_id,
-                    dto.booking_date,
-                    dto.end_time,
-                    dto.start_time,
-                ],
-            );
-
-            if (overlaps.length > 0) {
-                throw new ConflictException(
-                    'Sân đã có đơn đặt trùng khung giờ.',
-                );
-            }
-
-            const totalPrice = await this.calculatePrice(
-                connection,
-                pitch.category_id,
-                dto.start_time,
-                dto.end_time,
-            );
+            const prepared = await this.prepare(connection, dto, true);
 
             await connection.query(
                 'SET @app_user_id = ?',
                 [customerId],
             );
 
-            const [result] = await connection.execute<ResultSetHeader>(
-                `INSERT INTO bookings (
-                    customer_id,
-                    pitch_id,
-                    booking_date,
-                    start_time,
-                    end_time,
-                    total_pitch_price,
-                    status,
-                    customer_note
-                ) VALUES (?, ?, ?, ?, ?, ?, 'Pending', ?)`,
-                [
-                    customerId,
-                    dto.pitch_id,
-                    dto.booking_date,
-                    dto.start_time,
-                    dto.end_time,
-                    totalPrice,
-                    dto.customer_note ?? null,
-                ],
-            );
+            let bookingId: number;
+
+            try {
+                const [result] = await connection.execute<ResultSetHeader>(
+                    `INSERT INTO bookings (
+                        customer_id,
+                        pitch_id,
+                        booking_date,
+                        start_time,
+                        end_time,
+                        total_pitch_price,
+                        status,
+                        customer_note
+                    ) VALUES (?, ?, ?, ?, ?, ?, 'Pending', ?)`,
+                    [
+                        customerId,
+                        dto.pitch_id,
+                        dto.booking_date,
+                        dto.start_time,
+                        dto.end_time,
+                        prepared.pitchPrice,
+                        dto.customer_note ?? null,
+                    ],
+                );
+
+                bookingId = result.insertId;
+            } finally {
+                await connection
+                    .query('SET @app_user_id = NULL')
+                    .catch(() => undefined);
+            }
+
+            // Chốt dịch vụ: lưu giá tại thời điểm đặt và giữ hàng trong kho
+            for (const line of prepared.lines) {
+                await connection.execute(
+                    `INSERT INTO booking_services
+                        (booking_id, service_id, quantity, unit_price)
+                     VALUES (?, ?, ?, ?)`,
+                    [bookingId, line.service_id, line.quantity, line.unit_price],
+                );
+
+                const [stock] = await connection.execute<ResultSetHeader>(
+                    `UPDATE services
+                     SET stock_quantity = stock_quantity - ?
+                     WHERE service_id = ? AND stock_quantity >= ?`,
+                    [line.quantity, line.service_id, line.quantity],
+                );
+
+                if (stock.affectedRows !== 1) {
+                    throw new ConflictException(
+                        `Dịch vụ "${line.service_name}" vừa hết hàng, vui lòng chọn lại.`,
+                    );
+                }
+            }
 
             return {
                 message: 'Tạo đơn đặt sân thành công.',
                 booking: {
-                    booking_id: result.insertId,
+                    booking_id: bookingId,
+                    booking_code: buildTransferContent(bookingId),
                     customer_id: customerId,
                     pitch_id: dto.pitch_id,
                     booking_date: dto.booking_date,
                     start_time: dto.start_time,
                     end_time: dto.end_time,
-                    total_pitch_price: totalPrice,
+                    total_pitch_price: prepared.pitchPrice,
                     status: 'Pending',
                     customer_note: dto.customer_note ?? null,
+                    services: prepared.lines,
+                    ...this.buildAmounts(prepared),
+                    hold_minutes: holdMinutes,
                 },
             };
         });

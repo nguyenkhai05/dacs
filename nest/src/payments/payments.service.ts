@@ -14,6 +14,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import type { PoolConnection } from 'mysql2/promise';
 
 import type { AuthUser } from '../auth/auth-user.js';
+import { restoreServiceStock } from '../bookings/booking-stock.js';
 import { DatabaseService } from '../database/database.service.js';
 import type { BankWebhookDto } from './dto/bank-webhook.dto.js';
 import {
@@ -456,10 +457,15 @@ export class PaymentsService {
         actorId: number | null,
     ): Promise<void> {
         await this.withActor(connection, actorId, async () => {
-            await connection.execute(
+            const [updated] = await connection.execute(
                 `UPDATE bookings SET status = 'Cancelled' WHERE booking_id = ? AND status = 'Pending'`,
                 [bookingId],
             );
+
+            // Chỉ trả kho khi đơn VỪA bị hủy ở đây (tránh cộng kho hai lần)
+            if ((updated as { affectedRows: number }).affectedRows > 0) {
+                await restoreServiceStock(connection, bookingId);
+            }
 
             await connection.execute(
                 `

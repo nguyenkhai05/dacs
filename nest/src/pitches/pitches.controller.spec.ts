@@ -1,18 +1,17 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { describe, expect, it, vi } from 'vitest';
+
 import { PitchesController } from './pitches.controller.js';
+import { PitchesService } from './pitches.service.js';
 
 describe('PitchesController', () => {
-  let controller: PitchesController;
+  it('chuyển id cho service', () => {
+    const findOne = vi.fn().mockReturnValue('x');
+    const controller = new PitchesController({
+      findOne,
+    } as unknown as PitchesService);
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [PitchesController],
-    }).compile();
+    controller.findOne(7);
 
-    controller = module.get<PitchesController>(PitchesController);
-  });
-
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
+    expect(findOne).toHaveBeenCalledWith(7);
   });
 });

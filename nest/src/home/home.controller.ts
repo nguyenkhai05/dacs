@@ -13,12 +13,10 @@ export class HomeController {
         return this.homeService.getHome(query.date);
     }
 
-    // Nút "Tìm sân trống": lọc theo ngày + loại sân
+    // Màn 04/05: tìm sân + bộ lọc (ngày, loại sân, từ khóa, quận, khoảng giá,
+    // tiện ích, sắp xếp, phân trang)
     @Get('pitches')
     searchPitches(@Query() query: HomeQueryDto) {
-        return this.homeService.searchPitches(
-            query.date,
-            query.category_id,
-        );
+        return this.homeService.searchPitches(query);
     }
 }
