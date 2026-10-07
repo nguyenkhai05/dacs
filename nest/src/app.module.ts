@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { BookingsModule } from './bookings/bookings.module.js';
 import { HomeModule } from './home/home.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
+import { ReviewsModule } from './reviews/reviews.module.js';
 import { PitchesModule } from './pitches/pitches.module.js';
 import { ServicesModule } from './services/services.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -24,6 +25,7 @@ import { UsersModule } from './users/users.module.js';
     BookingsModule,
     PaymentsModule,
     UsersModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -13,6 +13,7 @@ mysql -u root -p < football_pitch_db.sql
 mysql -u root -p < db/migrations/001_home_page.sql
 mysql -u root -p < db/migrations/002_seed_home_demo.sql
 mysql -u root -p < db/migrations/003_pitch_filters.sql   # chỉ cần nếu dùng lọc quận/tiện ích
+mysql -u root -p < db/migrations/004_reviews.sql          # bảng đánh giá sau trận (màn 12)
 
 # 2. Cấu hình môi trường
 cd nest
@@ -52,12 +53,17 @@ npm test                 # chạy unit test
 | 08 | `POST /payments/deposit`, `GET /payments/deposit/:bookingId` | Đăng nhập |
 | 08 | `POST /payments/webhook/bank` | Secret webhook |
 | – | `POST /payments/:paymentId/confirm` | Admin, Staff |
+| 12 | `GET /reviews?pitch_id&rating&page&limit` (tổng quan sao + danh sách, tên người đánh giá được che) | Công khai |
+| 12 | `POST /reviews` (`booking_id`, `rating` 1-5, `comment` tùy chọn; chỉ đơn `Completed` của chính mình, mỗi đơn 1 lần) | Đăng nhập |
+| 12 | `GET /reviews/booking/:bookingId` (đơn đã đánh giá chưa / có đánh giá được không) | Chủ đơn |
+| 12 | `PUT /reviews/:id` (sửa đánh giá của mình) | Chủ đánh giá |
 
 Đăng nhập sai quá 5 lần trong 15 phút sẽ bị khóa tạm (HTTP 429).
 
 ## Tiến độ theo màn hình
 - ✅ 01, 02, 04, 05, 06, 07, 09, 10 (backend)
 - ⚠️ 08: có QR + webhook + tự hủy đơn hết hạn; cần cấu hình `PAYMENT_*` để chạy thật
+- ✅ 12 (đánh giá, backend)
 - ⏳ 03 (quên mật khẩu), 11 (tài khoản), 12 (đánh giá)
 - ⏳ 13–19 (phân hệ quản trị)
 
