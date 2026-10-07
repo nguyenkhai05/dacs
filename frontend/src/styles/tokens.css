@@ -1,0 +1,38 @@
+/* "Design tokens": mọi màu, cỡ chữ, bo góc... đặt tên ở MỘT chỗ.
+   Muốn đổi màu chủ đạo của cả website chỉ cần sửa file này. */
+:root {
+  /* Màu thương hiệu */
+  --color-primary: #1a7f4b;
+  --color-primary-dark: #126037;
+  --color-hero: #12402b;
+  --color-hero-text: #e8f5ec;
+
+  /* Màu nền, chữ, viền */
+  --color-bg: #f4f7f5;
+  --color-surface: #ffffff;
+  --color-border: #d5ded9;
+  --color-text: #17211b;
+  --color-muted: #5d6b63;
+
+  /* Trạng thái */
+  --color-danger: #b3261e;
+  --color-danger-bg: #fdecea;
+  --color-success: #1a7f4b;
+  --color-success-bg: #e6f4ec;
+
+  /* Hình khối */
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-card: 0 8px 30px rgba(18, 64, 43, 0.12);
+
+  /* Khoảng cách (thang 4px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --font-sans: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Arial,
+    sans-serif;
+}

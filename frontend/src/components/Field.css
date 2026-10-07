@@ -1,0 +1,46 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field__label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.field__control {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+/* Viền xanh khi ô nhập (hoặc nút bên trong) đang được focus */
+.field__control:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(26, 127, 75, 0.18);
+}
+
+.field__control--error {
+  border-color: var(--color-danger);
+}
+
+.field__input {
+  flex: 1;
+  min-width: 0; /* cho phép co lại trong flex, tránh tràn khung trên màn hình nhỏ */
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 0;
+  background: transparent;
+}
+
+.field__input:focus-visible {
+  outline: none; /* viền focus đã vẽ ở .field__control */
+}
+
+.field__error {
+  font-size: 0.8125rem;
+  color: var(--color-danger);
+}

@@ -1,0 +1,27 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px; /* đủ lớn để chạm bằng ngón tay trên điện thoại */
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+}
+
+.btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.btn--full {
+  width: 100%;
+}

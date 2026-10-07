@@ -1,0 +1,38 @@
+/* Reset nhẹ + kiểu chữ chung cho toàn bộ trang */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+/* Form control mặc định không kế thừa font, phải ép lại */
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--color-primary);
+}
+
+/* Viền focus rõ ràng cho người dùng bàn phím */
+:focus-visible {
+  outline: 3px solid rgba(26, 127, 75, 0.45);
+  outline-offset: 2px;
+}

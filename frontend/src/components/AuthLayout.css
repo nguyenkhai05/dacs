@@ -1,0 +1,144 @@
+/* Thiết kế "mobile-first": viết kiểu cho điện thoại trước,
+   rồi dùng @media (min-width: ...) để bổ sung cho màn hình rộng. */
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.logo__icon {
+  width: 28px;
+  height: 28px;
+}
+
+.logo__text {
+  color: var(--color-text);
+}
+
+.auth-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-header {
+  padding: var(--space-4);
+}
+
+.auth-header a {
+  text-decoration: none;
+}
+
+.auth-main {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 0 var(--space-4) var(--space-6);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 1040px;
+  display: grid;
+  grid-template-columns: 1fr; /* điện thoại: 1 cột, khối thương hiệu nằm trên */
+  gap: var(--space-4);
+  align-content: start;
+}
+
+/* --- Khối thương hiệu bên trái --- */
+.auth-hero {
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--color-hero);
+  color: var(--color-hero-text);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.auth-hero__title {
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.auth-hero__text {
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+/* Ảnh và số liệu chỉ hiện trên màn hình rộng */
+.auth-hero__photo,
+.auth-hero__stats {
+  display: none;
+}
+
+/* --- Khối nội dung bên phải --- */
+.auth-panel {
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+@media (min-width: 900px) {
+  .auth-main {
+    align-items: center;
+  }
+
+  .auth-card {
+    grid-template-columns: 1.1fr 1fr; /* máy tính: 2 cột */
+    gap: var(--space-5);
+    align-items: stretch;
+  }
+
+  .auth-hero {
+    padding: var(--space-6);
+  }
+
+  .auth-hero__title {
+    font-size: 2.25rem;
+  }
+
+  .auth-hero__photo {
+    display: block;
+    flex: 1;
+    min-height: 220px;
+    border-radius: var(--radius-md);
+    /* Lớp trên cùng là gradient; nếu chưa có ảnh thật thì vẫn thấy nền xanh đẹp.
+       Đặt ảnh của bạn tại public/images/hero-pitch.jpg */
+    background:
+      linear-gradient(180deg, rgba(18, 64, 43, 0) 40%, rgba(18, 64, 43, 0.6)),
+      url('/images/hero-pitch.jpg') center / cover no-repeat,
+      linear-gradient(135deg, #1f6b46, #0c2d1e);
+  }
+
+  .auth-hero__stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .auth-hero__stats li {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .auth-hero__stats strong {
+    font-size: 1.25rem;
+  }
+
+  .auth-hero__stats span {
+    font-size: 0.8rem;
+    opacity: 0.8;
+  }
+
+  .auth-panel {
+    padding: var(--space-6);
+  }
+}
