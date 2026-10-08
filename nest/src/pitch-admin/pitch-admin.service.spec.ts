@@ -35,8 +35,8 @@ const PITCH_ROW = {
 };
 
 const SLOTS = [
-    { price_slot_id: 1, category_id: 1, start_time: '06:00', end_time: '16:00', price_per_hour: '200000.00' },
-    { price_slot_id: 2, category_id: 1, start_time: '16:00', end_time: '22:00', price_per_hour: '250000.00' },
+    { price_slot_id: 1, category_id: 1, day_type: 'All', start_time: '06:00', end_time: '16:00', price_per_hour: '200000.00' },
+    { price_slot_id: 2, category_id: 1, day_type: 'All', start_time: '16:00', end_time: '22:00', price_per_hour: '250000.00' },
 ];
 
 function createService(options: Options = {}) {
@@ -119,7 +119,8 @@ describe('getPitch', () => {
         });
         const res = await service.getPitch(1);
         expect(res.price_slots).toHaveLength(2);
-        expect(res.price_gaps).toEqual([{ start_time: '16:00', end_time: '18:00' }]);
+        const gap = [{ start_time: '16:00', end_time: '18:00' }];
+        expect(res.price_gaps).toEqual({ Weekday: gap, Weekend: gap });
     });
 });
 
@@ -221,7 +222,7 @@ describe('khung giá', () => {
         const { service, execute } = createService({ slots: [SLOTS[0]] });
         await service.createPriceSlot(1, 1, { start_time: '16:00', end_time: '22:00', price_per_hour: 250000 });
         const call = execute.mock.calls.find(([sql]) => String(sql).startsWith('INSERT INTO price_slots'));
-        expect(call?.[1]).toEqual([1, '16:00:00', '22:00:00', 250000]);
+        expect(call?.[1]).toEqual([1, 'All', '16:00:00', '22:00:00', 250000]);
     });
 
     it('trigger DB báo chồng lấn (ghi đồng thời) → 409', async () => {
@@ -235,7 +236,7 @@ describe('khung giá', () => {
         const { service, execute } = createService();
         await service.updatePriceSlot(1, 1, { price_per_hour: 220000 });
         const call = execute.mock.calls.find(([sql]) => String(sql).includes('UPDATE price_slots'));
-        expect(call?.[1]).toEqual(['06:00', '16:00', 220000, 1]);
+        expect(call?.[1]).toEqual(['All', '06:00', '16:00', 220000, 1]);
     });
 
     it('sửa rỗng → 400', async () => {
@@ -252,6 +253,80 @@ describe('khung giá', () => {
         const { service } = createService({ slots: [SLOTS[0]] });
         const res = await service.deletePriceSlot(1, 1);
         expect(res.deleted).toBe(true);
+    });
+});
+
+describe('khung giá theo loại ngày', () => {
+    it('tạo khung Weekend: overlap chỉ so với cùng loại ngày, lưu day_type', async () => {
+        const { service, execute } = createService({ slots: [] });
+        await service.createPriceSlot(1, 1, {
+            day_type: 'Weekend',
+            start_time: '06:00',
+            end_time: '22:00',
+            price_per_hour: 400000,
+        });
+        const overlapCall = execute.mock.calls.find(([sql]) =>
+            String(sql).includes('FROM price_slots WHERE category_id = ? AND day_type = ?'),
+        );
+        expect(overlapCall?.[1]).toEqual([1, 'Weekend']);
+        const insert = execute.mock.calls.find(([sql]) => String(sql).startsWith('INSERT INTO price_slots'));
+        expect(insert?.[1]).toEqual([1, 'Weekend', '06:00:00', '22:00:00', 400000]);
+    });
+
+    it('không gửi day_type → mặc định All', async () => {
+        const { service, execute } = createService({ slots: [] });
+        await service.createPriceSlot(1, 1, { start_time: '06:00', end_time: '22:00', price_per_hour: 1 });
+        const insert = execute.mock.calls.find(([sql]) => String(sql).startsWith('INSERT INTO price_slots'));
+        expect(insert?.[1]?.[1]).toBe('All');
+    });
+
+    it('đổi một khung sang loại ngày khác được kiểm tra chồng lấn ở loại mới', async () => {
+        const { service, execute } = createService();
+        await service.updatePriceSlot(1, 1, { day_type: 'Holiday' });
+        const overlapCall = execute.mock.calls.find(([sql]) =>
+            String(sql).includes('AND day_type = ?'),
+        );
+        expect(overlapCall?.[1]).toEqual([1, 'Holiday']);
+        const update = execute.mock.calls.find(([sql]) => String(sql).includes('UPDATE price_slots'));
+        expect(update?.[1]).toEqual(['Holiday', '06:00', '16:00', 200000, 1]);
+    });
+
+    it('previewPrice: ngày lễ chọn bộ Holiday và trả tên ngày lễ', async () => {
+        const { service, query } = createService();
+        query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM holidays')) return [{ holiday_name: 'Quốc khánh' }];
+            if (sql.includes('FROM pitch_categories WHERE category_id')) {
+                return [{ category_id: 1, category_name: 'A', description: null, is_active: 1 }];
+            }
+            return [
+                { ...SLOTS[0], day_type: 'All' },
+                { ...SLOTS[1], day_type: 'Holiday', price_per_hour: '600000.00' },
+            ];
+        });
+        const res = await service.previewPrice(1, '2026-09-02');
+        expect(res).toMatchObject({ is_holiday: true, holiday_name: 'Quốc khánh', pricing_day_type: 'Holiday' });
+        expect(res.price_slots).toHaveLength(1);
+        expect(res.price_slots[0].price_per_hour).toBe(600000);
+    });
+
+    it('previewPrice: ngày thường không phải lễ dùng bộ theo thứ', async () => {
+        const { service, query } = createService();
+        query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM holidays')) return [];
+            if (sql.includes('FROM pitch_categories WHERE category_id')) {
+                return [{ category_id: 1, category_name: 'A', description: null, is_active: 1 }];
+            }
+            return [SLOTS[0], { ...SLOTS[1], day_type: 'Weekend' }];
+        });
+        const weekday = await service.previewPrice(1, '2026-10-09'); // thứ Sáu
+        const saturday = await service.previewPrice(1, '2026-10-10');
+        expect(weekday.pricing_day_type).toBe('All');
+        expect(saturday.pricing_day_type).toBe('Weekend');
+    });
+
+    it('previewPrice: ngày không hợp lệ → 400', async () => {
+        const { service } = createService();
+        await expect(service.previewPrice(1, '2026-02-30')).rejects.toBeInstanceOf(BadRequestException);
     });
 });
 

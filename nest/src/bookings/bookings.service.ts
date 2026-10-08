@@ -9,6 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import type { PoolConnection } from 'mysql2/promise';
+import { dayTypeCandidates, selectEffectiveSlots, type DayType } from '../common/pricing.util.js';
 import { getVietnamNow } from '../common/time.util.js';
 import { DatabaseService } from '../database/database.service.js';
 import { buildTransferContent } from '../payments/payments.utils.js';
@@ -43,9 +44,12 @@ interface PitchRow extends RowDataPacket {
 }
 
 interface PriceSlotRow extends RowDataPacket {
+    day_type: DayType;
     start_time: string;
     end_time: string;
     price_per_hour: string | number;
+    // 1 nếu ngày đang xét nằm trong bảng holidays (cột này giống nhau ở mọi dòng)
+    is_holiday?: number | string | null;
 }
 
 interface TimeRow extends RowDataPacket {
@@ -185,24 +189,52 @@ export class BookingsService {
         }
     }
 
+    // Lấy bộ khung giá có hiệu lực của loại sân trong một ngày
+    // (thứ trong tuần / ngày lễ - xem common/pricing.util.ts).
+    private async loadEffectiveSlots(
+        run: (sql: string, params: (string | number)[]) => Promise<PriceSlotRow[]>,
+        categoryId: number,
+        date: string,
+    ): Promise<{ slots: PriceSlotRow[]; isHoliday: boolean }> {
+        const rows = await run(
+            `SELECT day_type, start_time, end_time, price_per_hour,
+                    EXISTS (SELECT 1 FROM holidays WHERE holiday_date = ?) AS is_holiday
+             FROM price_slots
+             WHERE category_id = ?
+             ORDER BY start_time ASC`,
+            [date, categoryId],
+        );
+
+        const isHoliday = rows.some((row) => Number(row.is_holiday) === 1);
+        const slots = selectEffectiveSlots(
+            rows,
+            dayTypeCandidates(date, isHoliday),
+        );
+
+        return { slots, isHoliday };
+    }
+
     // Tính tiền theo các khung giá mà khoảng đặt sân đi qua.
     private async calculatePrice(
         connection: import('mysql2/promise').PoolConnection,
         categoryId: number,
+        date: string,
         startTime: string,
         endTime: string,
     ): Promise<number> {
         const start = this.toMinutes(startTime);
         const end = this.toMinutes(endTime);
 
-        const [slots] = await connection.execute<PriceSlotRow[]>(
-            `SELECT start_time, end_time, price_per_hour
-             FROM price_slots
-             WHERE category_id = ?
-               AND start_time < ?
-               AND end_time > ?
-             ORDER BY start_time ASC`,
-            [categoryId, endTime, startTime],
+        const { slots } = await this.loadEffectiveSlots(
+            async (sql, params) => {
+                const [rows] = await connection.execute<PriceSlotRow[]>(
+                    sql,
+                    params,
+                );
+                return rows;
+            },
+            categoryId,
+            date,
         );
 
         let cursor = start;
@@ -310,13 +342,12 @@ export class BookingsService {
             );
         }
 
-        const priceSlots =
-            await this.databaseService.query<PriceSlotRow[]>(
-                `SELECT start_time, end_time, price_per_hour
-                 FROM price_slots
-                 WHERE category_id = ?
-                 ORDER BY start_time ASC`,
-                [pitch.category_id],
+        const { slots: priceSlots, isHoliday } =
+            await this.loadEffectiveSlots(
+                (sql, params) =>
+                    this.databaseService.query<PriceSlotRow[]>(sql, params),
+                pitch.category_id,
+                date,
             );
 
         const bookings =
@@ -405,6 +436,9 @@ export class BookingsService {
             pitch_name: pitch.pitch_name,
             category_id: pitch.category_id,
             booking_date: date,
+            // Loại ngày quyết định bảng giá: Holiday / Weekend / Weekday / All
+            pricing_day_type: priceSlots[0]?.day_type ?? null,
+            is_holiday: isHoliday,
             total_slots: slots.length,
             available_slots: slots.filter(
                 (slot) => slot.available,
@@ -586,6 +620,7 @@ export class BookingsService {
         const pitchPrice = await this.calculatePrice(
             connection,
             pitch.category_id,
+            dto.booking_date,
             dto.start_time,
             dto.end_time,
         );

@@ -1,5 +1,7 @@
 // Tiện ích thuần cho màn 15 (Sân & bảng giá) - không đụng DB nên dễ test.
 
+import { selectEffectiveSlots, type DayType } from '../common/pricing.util.js';
+
 export const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d(:00)?$/;
 
 // Sân đang giữ lịch: đơn ở các trạng thái này chặn việc đưa sân vào bảo trì/ngưng
@@ -55,6 +57,73 @@ export function findPriceGaps(slots: TimeRange[]): TimeRange[] {
     }
 
     return gaps;
+}
+
+const toClock = (minutes: number): string =>
+    `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+
+/** Các khoảng trong [spanStart, spanEnd) (số phút) mà `slots` không phủ tới. */
+export function findUncovered(
+    slots: TimeRange[],
+    spanStart: number,
+    spanEnd: number,
+): TimeRange[] {
+    const sorted = [...slots].sort(
+        (a, b) => toMinutes(a.start_time) - toMinutes(b.start_time),
+    );
+    const gaps: TimeRange[] = [];
+    let cursor = spanStart;
+
+    for (const slot of sorted) {
+        const start = toMinutes(slot.start_time);
+
+        if (start > cursor) {
+            gaps.push({ start_time: toClock(cursor), end_time: toClock(Math.min(start, spanEnd)) });
+        }
+
+        cursor = Math.max(cursor, toMinutes(slot.end_time));
+
+        if (cursor >= spanEnd) {
+            return gaps;
+        }
+    }
+
+    if (cursor < spanEnd) {
+        gaps.push({ start_time: toClock(cursor), end_time: toClock(spanEnd) });
+    }
+
+    return gaps;
+}
+
+export type GapsByDayType = Partial<Record<'Weekday' | 'Weekend' | 'Holiday', TimeRange[]>>;
+
+/**
+ * Giờ nào nằm trong khung hoạt động của loại sân (từ khung sớm nhất tới muộn nhất, mọi loại ngày)
+ * mà bộ khung giá có hiệu lực của Thứ 2-6 / Thứ 7-CN / Ngày lễ không phủ tới thì khách không đặt được.
+ * Ngày lễ chỉ được báo khi đã cấu hình khung giá Holiday (nếu không, ngày lễ dùng giá thường).
+ */
+export function computeGapsByDayType(
+    slots: (TimeRange & { day_type: string })[],
+): GapsByDayType {
+    if (slots.length === 0) {
+        return {};
+    }
+
+    const spanStart = Math.min(...slots.map((slot) => toMinutes(slot.start_time)));
+    const spanEnd = Math.max(...slots.map((slot) => toMinutes(slot.end_time)));
+    const gapsOf = (candidates: DayType[]) =>
+        findUncovered(selectEffectiveSlots(slots, candidates), spanStart, spanEnd);
+
+    const result: GapsByDayType = {
+        Weekday: gapsOf(['Weekday', 'All']),
+        Weekend: gapsOf(['Weekend', 'All']),
+    };
+
+    if (slots.some((slot) => slot.day_type === 'Holiday')) {
+        result.Holiday = gapsOf(['Holiday']);
+    }
+
+    return result;
 }
 
 /** Nhận JSON từ mysql2 (đã parse sẵn hoặc còn là chuỗi) → mảng tiện ích. */

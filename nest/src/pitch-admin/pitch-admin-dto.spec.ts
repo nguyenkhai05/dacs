@@ -4,6 +4,7 @@ import { validate } from 'class-validator';
 import { describe, expect, it } from 'vitest';
 
 import {
+    CreateHolidayDto,
     CreatePitchDto,
     CreatePriceSlotDto,
     UpdatePriceSlotDto,
@@ -41,6 +42,37 @@ describe('CreatePriceSlotDto', () => {
                 price_per_hour: 1.234,
             }),
         ).toEqual(['price_per_hour']);
+    });
+});
+
+describe('day_type của khung giá', () => {
+    const base = { start_time: '06:00', end_time: '12:00', price_per_hour: 1000 };
+
+    it('nhận All/Weekday/Weekend/Holiday, từ chối giá trị lạ', async () => {
+        for (const day_type of ['All', 'Weekday', 'Weekend', 'Holiday']) {
+            expect(await errorsOf(CreatePriceSlotDto, { ...base, day_type })).toEqual([]);
+        }
+        expect(await errorsOf(CreatePriceSlotDto, { ...base, day_type: 'Sunday' })).toEqual(['day_type']);
+        expect(await errorsOf(UpdatePriceSlotDto, { day_type: 'Tet' })).toEqual(['day_type']);
+    });
+
+    it('bỏ trống day_type vẫn hợp lệ (mặc định All ở service)', async () => {
+        expect(await errorsOf(CreatePriceSlotDto, base)).toEqual([]);
+    });
+});
+
+describe('CreateHolidayDto', () => {
+    it('hợp lệ một ngày hoặc cả khoảng', async () => {
+        expect(await errorsOf(CreateHolidayDto, { name: 'Quốc khánh', date: '2026-09-02' })).toEqual([]);
+        expect(
+            await errorsOf(CreateHolidayDto, { name: 'Tết', date: '2027-02-05', end_date: '2027-02-11' }),
+        ).toEqual([]);
+    });
+
+    it('thiếu tên, sai định dạng ngày', async () => {
+        expect(await errorsOf(CreateHolidayDto, { name: ' ', date: '2/9/2026' })).toEqual(
+            expect.arrayContaining(['name', 'date']),
+        );
     });
 });
 

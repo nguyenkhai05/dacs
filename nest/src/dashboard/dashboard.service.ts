@@ -1,5 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 
+import { addDays } from '../common/date.util.js';
+import { effectiveSlotPredicate } from '../common/pricing.util.js';
 import { getVietnamNow } from '../common/time.util.js';
 import { DatabaseService } from '../database/database.service.js';
 import { buildTransferContent } from '../payments/payments.utils.js';
@@ -18,6 +20,8 @@ const CHART_LAST_HOUR = 21;
 
 const WEEKDAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
+export { addDays };
+
 export const round2 = (value: number): number =>
     Math.round((value + Number.EPSILON) * 100) / 100;
 
@@ -26,12 +30,6 @@ export function startOfWeek(date: string): string {
     const d = new Date(`${date}T00:00:00Z`);
     const offset = (d.getUTCDay() + 6) % 7; // T2=0 ... CN=6
     d.setUTCDate(d.getUTCDate() - offset);
-    return d.toISOString().slice(0, 10);
-}
-
-export function addDays(date: string, days: number): string {
-    const d = new Date(`${date}T00:00:00Z`);
-    d.setUTCDate(d.getUTCDate() + days);
     return d.toISOString().slice(0, 10);
 }
 
@@ -102,12 +100,14 @@ export class DashboardService {
                  WHERE booking_date = ? AND status IN (${OCCUPYING_STATUSES})`,
                 [date],
             ),
-            // Sức chứa = tổng số giờ có bảng giá của mọi sân đang hoạt động
+            // Sức chứa = tổng số giờ có bảng giá của mọi sân đang hoạt động,
+            // tính theo bộ khung giá có hiệu lực của ngày (thứ trong tuần / ngày lễ)
             this.database.query<HoursRow[]>(
                 `SELECT SUM(TIME_TO_SEC(TIMEDIFF(ps.end_time, ps.start_time))) / 3600 AS hours
                  FROM pitches p
                  JOIN price_slots ps ON ps.category_id = p.category_id
-                 WHERE p.status = 'Available'`,
+                 WHERE p.status = 'Available'
+                   AND ${effectiveSlotPredicate('ps', date)}`,
             ),
             this.database.query<RevenueRow[]>(
                 `SELECT SUM(COALESCE(i.total_amount, b.total_pitch_price)) AS revenue

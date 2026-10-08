@@ -15,6 +15,7 @@ import {
     Min,
 } from 'class-validator';
 
+import { DAY_TYPES, type DayType } from '../../common/pricing.util.js';
 import { TIME_PATTERN } from '../pitch-admin.utils.js';
 
 export const PITCH_STATUSES = ['Available', 'Maintenance', 'Inactive'] as const;
@@ -200,7 +201,14 @@ export class UpdateCategoryDto {
 
 export const MAX_PRICE_PER_HOUR = 99_999_999;
 
+const DAY_TYPE_MESSAGE = 'day_type phải là All, Weekday, Weekend hoặc Holiday';
+
 export class CreatePriceSlotDto {
+    // All = mọi ngày (mặc định), Weekday = T2-T6, Weekend = T7-CN, Holiday = ngày lễ
+    @IsOptional()
+    @IsIn(DAY_TYPES, { message: DAY_TYPE_MESSAGE })
+    day_type?: DayType;
+
     @Matches(TIME_PATTERN, { message: 'start_time phải có dạng HH:mm (00:00 - 23:59)' })
     start_time: string;
 
@@ -216,6 +224,10 @@ export class CreatePriceSlotDto {
 
 export class UpdatePriceSlotDto {
     @IsOptional()
+    @IsIn(DAY_TYPES, { message: DAY_TYPE_MESSAGE })
+    day_type?: DayType;
+
+    @IsOptional()
     @Matches(TIME_PATTERN, { message: 'start_time phải có dạng HH:mm (00:00 - 23:59)' })
     start_time?: string;
 
@@ -229,4 +241,41 @@ export class UpdatePriceSlotDto {
     @Min(0, { message: 'Giá không được âm' })
     @Max(MAX_PRICE_PER_HOUR, { message: 'Giá vượt mức cho phép' })
     price_per_hour?: number;
+}
+
+
+// ---------- Ngày lễ ----------
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+export class ListHolidaysQueryDto {
+    // Mặc định: từ hôm nay trở đi
+    @IsOptional()
+    @Matches(DATE_PATTERN, { message: 'from phải có dạng YYYY-MM-DD' })
+    from?: string;
+
+    @IsOptional()
+    @Matches(DATE_PATTERN, { message: 'to phải có dạng YYYY-MM-DD' })
+    to?: string;
+}
+
+export class CreateHolidayDto {
+    @Transform(trim)
+    @IsString({ message: 'Tên ngày lễ phải là chữ' })
+    @IsNotEmpty({ message: 'Tên ngày lễ không được để trống' })
+    @MaxLength(100, { message: 'Tên ngày lễ tối đa 100 ký tự' })
+    name: string;
+
+    // Một ngày, hoặc cả khoảng từ date đến end_date (vd nghỉ Tết nhiều ngày)
+    @Matches(DATE_PATTERN, { message: 'date phải có dạng YYYY-MM-DD' })
+    date: string;
+
+    @IsOptional()
+    @Matches(DATE_PATTERN, { message: 'end_date phải có dạng YYYY-MM-DD' })
+    end_date?: string;
+}
+
+export class PricePreviewQueryDto {
+    @Matches(DATE_PATTERN, { message: 'date phải có dạng YYYY-MM-DD' })
+    date: string;
 }

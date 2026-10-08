@@ -21,6 +21,7 @@ import {
     CreatePitchDto,
     CreatePriceSlotDto,
     ListAdminPitchesQueryDto,
+    PricePreviewQueryDto,
     UpdateCategoryDto,
     UpdatePitchDto,
     UpdatePitchStatusDto,
@@ -110,6 +111,15 @@ export class PitchAdminController {
         @Body() dto: CreatePriceSlotDto,
     ) {
         return this.service.createPriceSlot(Number(user.sub), id, dto);
+    }
+
+    // Bảng giá thực tế áp dụng cho một ngày (đã tính thứ trong tuần / ngày lễ)
+    @Get('pitch-categories/:id/price-preview')
+    previewPrice(
+        @Param('id', ParseIntPipe) id: number,
+        @Query() query: PricePreviewQueryDto,
+    ) {
+        return this.service.previewPrice(id, query.date);
     }
 
     @Get('pitch-categories/:id/price-history')

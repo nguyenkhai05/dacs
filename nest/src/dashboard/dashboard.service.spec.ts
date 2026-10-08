@@ -79,6 +79,16 @@ describe('vietnamDayStartEpoch', () => {
   });
 });
 
+describe('sức chứa theo bộ giá của ngày', () => {
+  it('truy vấn sức chứa lọc khung giá theo loại ngày', async () => {
+    const { service, query } = createService();
+    await service.getOverview('2026-10-10'); // thứ Bảy
+    const call = query.mock.calls.find(([sql]) => String(sql).includes('FROM pitches p'));
+    expect(String(call?.[0])).toContain("dx.day_type = 'Weekend'");
+    expect(String(call?.[0])).toContain("hd.holiday_date = '2026-10-10'");
+  });
+});
+
 describe('DashboardService.getOverview', () => {
   it('tính KPI: 11/16 giờ = 68,75%', async () => {
     const { service } = createService();

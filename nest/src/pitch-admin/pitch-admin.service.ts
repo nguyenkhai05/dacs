@@ -6,6 +6,12 @@ import {
 } from '@nestjs/common';
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 
+import {
+    DAY_TYPE_LABELS,
+    dayTypeCandidates,
+    selectEffectiveSlots,
+    type DayType,
+} from '../common/pricing.util.js';
 import { getVietnamNow } from '../common/time.util.js';
 import { DatabaseService } from '../database/database.service.js';
 import type {
@@ -20,7 +26,7 @@ import type {
 } from './dto/pitch-admin.dto.js';
 import {
     ACTIVE_BOOKING_STATUSES,
-    findPriceGaps,
+    computeGapsByDayType,
     isDuplicateEntry,
     isRowReferenced,
     isTriggerSignal,
@@ -54,6 +60,7 @@ interface PitchRow extends RowDataPacket {
 interface SlotRow extends RowDataPacket {
     price_slot_id: number;
     category_id: number;
+    day_type: DayType;
     start_time: string;
     end_time: string;
     price_per_hour: string | number;
@@ -156,7 +163,7 @@ export class PitchAdminService {
         return {
             ...this.toPitchItem(pitch),
             price_slots: slots.map((slot) => this.toSlotItem(slot)),
-            price_gaps: findPriceGaps(slots),
+            price_gaps: computeGapsByDayType(slots),
             history,
         };
     }
@@ -277,12 +284,12 @@ export class PitchAdminService {
                  ORDER BY pc.category_id ASC`,
             ),
             this.database.query<SlotRow[]>(
-                `SELECT price_slot_id, category_id,
+                `SELECT price_slot_id, category_id, day_type,
                         TIME_FORMAT(start_time, '%H:%i') AS start_time,
                         TIME_FORMAT(end_time, '%H:%i') AS end_time,
                         price_per_hour
                  FROM price_slots
-                 ORDER BY category_id ASC, start_time ASC`,
+                 ORDER BY category_id ASC, FIELD(day_type, 'All', 'Weekday', 'Weekend', 'Holiday'), start_time ASC`,
             ),
         ]);
 
@@ -296,7 +303,7 @@ export class PitchAdminService {
                 is_active: Boolean(category.is_active),
                 pitch_count: Number(category.pitch_count ?? 0),
                 price_slots: own.map((slot) => this.toSlotItem(slot)),
-                price_gaps: findPriceGaps(own),
+                price_gaps: computeGapsByDayType(own),
             };
         });
     }
@@ -360,24 +367,25 @@ export class PitchAdminService {
         return {
             category,
             price_slots: slots.map((slot) => this.toSlotItem(slot)),
-            price_gaps: findPriceGaps(slots),
+            price_gaps: computeGapsByDayType(slots),
         };
     }
 
     async createPriceSlot(userId: number, categoryId: number, dto: CreatePriceSlotDto) {
         const start = normalizeTime(dto.start_time);
         const end = normalizeTime(dto.end_time);
+        const dayType = dto.day_type ?? 'All';
         this.assertValidRange(start, end);
 
         await this.audited(userId, async (connection) => {
             await this.lockCategory(connection, categoryId);
-            await this.assertNoSlotOverlap(connection, categoryId, start, end);
+            await this.assertNoSlotOverlap(connection, categoryId, dayType, start, end);
 
             try {
                 await connection.execute(
-                    `INSERT INTO price_slots (category_id, start_time, end_time, price_per_hour)
-                     VALUES (?, ?, ?, ?)`,
-                    [categoryId, start, end, dto.price_per_hour],
+                    `INSERT INTO price_slots (category_id, day_type, start_time, end_time, price_per_hour)
+                     VALUES (?, ?, ?, ?, ?)`,
+                    [categoryId, dayType, start, end, dto.price_per_hour],
                 );
             } catch (error) {
                 this.rethrowSlotError(error);
@@ -389,6 +397,7 @@ export class PitchAdminService {
 
     async updatePriceSlot(userId: number, slotId: number, dto: UpdatePriceSlotDto) {
         if (
+            dto.day_type === undefined &&
             dto.start_time === undefined &&
             dto.end_time === undefined &&
             dto.price_per_hour === undefined
@@ -398,7 +407,7 @@ export class PitchAdminService {
 
         const categoryId = await this.audited(userId, async (connection) => {
             const [rows] = await connection.execute<SlotRow[]>(
-                `SELECT price_slot_id, category_id, start_time, end_time, price_per_hour
+                `SELECT price_slot_id, category_id, day_type, start_time, end_time, price_per_hour
                  FROM price_slots WHERE price_slot_id = ? FOR UPDATE`,
                 [slotId],
             );
@@ -412,17 +421,25 @@ export class PitchAdminService {
             const start = dto.start_time ? normalizeTime(dto.start_time) : current.start_time;
             const end = dto.end_time ? normalizeTime(dto.end_time) : current.end_time;
             const price = dto.price_per_hour ?? Number(current.price_per_hour);
+            const dayType = dto.day_type ?? current.day_type;
 
             this.assertValidRange(start, end);
             await this.lockCategory(connection, current.category_id);
-            await this.assertNoSlotOverlap(connection, current.category_id, start, end, slotId);
+            await this.assertNoSlotOverlap(
+                connection,
+                current.category_id,
+                dayType,
+                start,
+                end,
+                slotId,
+            );
 
             try {
                 await connection.execute(
                     `UPDATE price_slots
-                     SET start_time = ?, end_time = ?, price_per_hour = ?
+                     SET day_type = ?, start_time = ?, end_time = ?, price_per_hour = ?
                      WHERE price_slot_id = ?`,
-                    [start, end, price, slotId],
+                    [dayType, start, end, price, slotId],
                 );
             } catch (error) {
                 this.rethrowSlotError(error);
@@ -469,7 +486,37 @@ export class PitchAdminService {
             deleted: true,
             price_slots: slots.map((slot) => this.toSlotItem(slot)),
             // Giờ rơi vào khoảng trống sẽ không còn giá → khách không đặt được
-            price_gaps: findPriceGaps(slots),
+            price_gaps: computeGapsByDayType(slots),
+        };
+    }
+
+    /** Bảng giá thực tế áp dụng cho một ngày cụ thể (để quản lý kiểm tra cấu hình). */
+    async previewPrice(categoryId: number, date: string) {
+        const parsed = new Date(`${date}T00:00:00Z`);
+
+        if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) {
+            throw new BadRequestException('Ngày không hợp lệ.');
+        }
+
+        const category = await this.getCategory(categoryId);
+        const [slots, holidayRows] = await Promise.all([
+            this.fetchSlots(categoryId),
+            this.database.query<RowDataPacket[]>(
+                'SELECT holiday_name FROM holidays WHERE holiday_date = ? LIMIT 1',
+                [date],
+            ),
+        ]);
+
+        const isHoliday = holidayRows.length > 0;
+        const effective = selectEffectiveSlots(slots, dayTypeCandidates(date, isHoliday));
+
+        return {
+            category,
+            date,
+            is_holiday: isHoliday,
+            holiday_name: isHoliday ? String(holidayRows[0].holiday_name) : null,
+            pricing_day_type: effective[0]?.day_type ?? null,
+            price_slots: effective.map((slot) => this.toSlotItem(slot)),
         };
     }
 
@@ -477,7 +524,7 @@ export class PitchAdminService {
         await this.getCategory(categoryId);
 
         return this.database.query<RowDataPacket[]>(
-            `SELECT h.history_id, h.price_slot_id,
+            `SELECT h.history_id, h.price_slot_id, ps.day_type,
                     TIME_FORMAT(ps.start_time, '%H:%i') AS start_time,
                     TIME_FORMAT(ps.end_time, '%H:%i') AS end_time,
                     h.old_price, h.new_price,
@@ -542,6 +589,7 @@ export class PitchAdminService {
         return {
             price_slot_id: slot.price_slot_id,
             category_id: slot.category_id,
+            day_type: slot.day_type,
             start_time: toHHmm(slot.start_time),
             end_time: toHHmm(slot.end_time),
             price_per_hour: Number(slot.price_per_hour),
@@ -550,13 +598,13 @@ export class PitchAdminService {
 
     private fetchSlots(categoryId: number): Promise<SlotRow[]> {
         return this.database.query<SlotRow[]>(
-            `SELECT price_slot_id, category_id,
+            `SELECT price_slot_id, category_id, day_type,
                     TIME_FORMAT(start_time, '%H:%i') AS start_time,
                     TIME_FORMAT(end_time, '%H:%i') AS end_time,
                     price_per_hour
              FROM price_slots
              WHERE category_id = ?
-             ORDER BY start_time ASC`,
+             ORDER BY FIELD(day_type, 'All', 'Weekday', 'Weekend', 'Holiday'), start_time ASC`,
             [categoryId],
         );
     }
@@ -671,16 +719,18 @@ export class PitchAdminService {
     private async assertNoSlotOverlap(
         connection: PoolConnection,
         categoryId: number,
+        dayType: DayType,
         start: string,
         end: string,
         excludeSlotId?: number,
     ) {
+        // Chỉ so với các khung CÙNG loại ngày (khớp trigger trong DB)
         const [rows] = await connection.execute<SlotRow[]>(
             `SELECT price_slot_id,
                     TIME_FORMAT(start_time, '%H:%i') AS start_time,
                     TIME_FORMAT(end_time, '%H:%i') AS end_time
-             FROM price_slots WHERE category_id = ?`,
-            [categoryId],
+             FROM price_slots WHERE category_id = ? AND day_type = ?`,
+            [categoryId, dayType],
         );
 
         const clash = rows.find(
@@ -694,7 +744,7 @@ export class PitchAdminService {
 
         if (clash) {
             throw new ConflictException(
-                `Khung giờ bị chồng lấn với khung ${clash.start_time} - ${clash.end_time}.`,
+                `Khung giờ bị chồng lấn với khung ${clash.start_time} - ${clash.end_time} (${DAY_TYPE_LABELS[dayType]}).`,
             );
         }
     }

@@ -13,8 +13,8 @@ const FUTURE_DATE = '2099-01-05';
 
 // Bảng giá mẫu: 06-17h = 200.000đ/giờ, 17-22h = 300.000đ/giờ
 const PRICE_SLOTS = [
-  { start_time: '06:00:00', end_time: '17:00:00', price_per_hour: '200000.00' },
-  { start_time: '17:00:00', end_time: '22:00:00', price_per_hour: '300000.00' },
+  { day_type: 'All', start_time: '06:00:00', end_time: '17:00:00', price_per_hour: '200000.00' },
+  { day_type: 'All', start_time: '17:00:00', end_time: '22:00:00', price_per_hour: '300000.00' },
 ];
 
 const SERVICE_ROWS = [
@@ -380,5 +380,88 @@ describe('BookingsService.getAvailability', () => {
     await expect(
       service.getAvailability('1', '2000-01-01'),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('BookingsService - giá theo thứ trong tuần / ngày lễ', () => {
+  const SATURDAY = '2099-01-10';
+  const WEEKEND_SLOTS = [
+    { day_type: 'Weekend', start_time: '06:00:00', end_time: '22:00:00', price_per_hour: '400000.00' },
+  ];
+  const HOLIDAY_SLOTS = [
+    { day_type: 'Holiday', start_time: '06:00:00', end_time: '22:00:00', price_per_hour: '600000.00' },
+  ];
+  const withHoliday = (rows: Record<string, unknown>[]) =>
+    rows.map((row) => ({ ...row, is_holiday: 1 }));
+  const dto = (date: string) => ({ ...baseDto, booking_date: date, start_time: '08:00', end_time: '09:00' });
+
+  it('thứ 7 dùng bộ Weekend nếu có', async () => {
+    const { service } = createService({ priceSlots: [...PRICE_SLOTS, ...WEEKEND_SLOTS] });
+    const result = await service.create(9, dto(SATURDAY));
+    expect(result.booking.total_pitch_price).toBe(400000);
+  });
+
+  it('ngày thường bỏ qua bộ Weekend, dùng bộ All', async () => {
+    const { service } = createService({ priceSlots: [...PRICE_SLOTS, ...WEEKEND_SLOTS] });
+    const result = await service.create(9, dto(FUTURE_DATE));
+    expect(result.booking.total_pitch_price).toBe(200000);
+  });
+
+  it('thứ 7 chưa có bộ Weekend thì rơi về bộ All', async () => {
+    const { service } = createService();
+    const result = await service.create(9, dto(SATURDAY));
+    expect(result.booking.total_pitch_price).toBe(200000);
+  });
+
+  it('ngày lễ ưu tiên bộ Holiday hơn Weekend/All', async () => {
+    const { service } = createService({
+      priceSlots: withHoliday([...PRICE_SLOTS, ...WEEKEND_SLOTS, ...HOLIDAY_SLOTS]),
+    });
+    const result = await service.create(9, dto(SATURDAY));
+    expect(result.booking.total_pitch_price).toBe(600000);
+  });
+
+  it('ngày lễ chưa có bộ Holiday thì dùng giá theo thứ trong tuần', async () => {
+    const { service } = createService({
+      priceSlots: withHoliday([...PRICE_SLOTS, ...WEEKEND_SLOTS]),
+    });
+    const result = await service.create(9, dto(SATURDAY));
+    expect(result.booking.total_pitch_price).toBe(400000);
+  });
+
+  it('bộ giá riêng không phủ hết giờ đặt → báo chưa có bảng giá đầy đủ', async () => {
+    const { service } = createService({
+      priceSlots: [
+        ...PRICE_SLOTS,
+        { day_type: 'Weekend', start_time: '16:00:00', end_time: '22:00:00', price_per_hour: '400000.00' },
+      ],
+    });
+    await expect(service.create(9, dto(SATURDAY))).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('truy vấn giá kèm ngày để kiểm tra ngày lễ', async () => {
+    const { service, execute } = createService();
+    await service.create(9, dto(SATURDAY));
+    const call = execute.mock.calls.find(([sql]) => String(sql).includes('FROM price_slots'));
+    expect(String(call?.[0])).toContain('FROM holidays');
+  });
+
+  it('availability trả bảng giá theo loại ngày và cờ ngày lễ', async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce([{ pitch_id: 1, pitch_name: 'Sân 1', category_id: 1, status: 'Available' }])
+      .mockResolvedValueOnce(withHoliday([...PRICE_SLOTS, ...WEEKEND_SLOTS]))
+      .mockResolvedValueOnce([]);
+    const service = new BookingsService(
+      { query } as unknown as DatabaseService,
+      { get: () => undefined } as unknown as ConfigService,
+    );
+
+    const result = await service.getAvailability('1', SATURDAY);
+
+    expect(result.pricing_day_type).toBe('Weekend');
+    expect(result.is_holiday).toBe(true);
+    expect(result.slots[0].price_per_hour).toBe(400000);
+    expect(result.total_slots).toBe(16);
   });
 });

@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 
+import { effectiveSlotPredicate } from '../common/pricing.util.js';
 import { getVietnamNow } from '../common/time.util.js';
 import { DatabaseService } from '../database/database.service.js';
 import type { PitchSort } from './dto/home-query.dto.js';
@@ -43,8 +44,8 @@ export interface PitchCard {
     surface_type: string;
     category_id: number;
     category_name: string;
-    price_from: number | null; // giá/giờ thấp nhất của loại sân
-    free_slots: number; // số khung giờ còn trống trong ngày
+    price_from: number | null; // giá/giờ thấp nhất của loại sân trong ngày đang xem
+    free_slots: number; // số ca (khung giá) còn trống trong ngày
     availability: 'Available' | 'Full';
 }
 
@@ -99,7 +100,7 @@ export class HomeService {
 
         const [pitches, total] = await Promise.all([
             this.findPitchCards(day, filters, limit, (page - 1) * limit),
-            this.countPitches(filters),
+            this.countPitches(day, filters),
         ]);
 
         return {
@@ -139,7 +140,7 @@ export class HomeService {
         const cutoffTime = date === now.date ? now.time : '00:00:00';
         const safeLimit = Math.max(1, Math.floor(limit)); // chèn thẳng vào SQL nên phải ép số
         const safeOffset = Math.max(0, Math.floor(offset));
-        const where = this.buildWhere(filters);
+        const where = this.buildWhere(filters, date);
         const orderBy = ORDER_BY[filters.sort ?? 'available'];
 
         const rows = await this.database.query<PitchCardRow[]>(
@@ -155,11 +156,13 @@ export class HomeService {
           SELECT MIN(ps.price_per_hour)
           FROM price_slots ps
           WHERE ps.category_id = p.category_id
+            AND ${effectiveSlotPredicate('ps', date)}
         ) AS price_from,
         (
           SELECT COUNT(*)
           FROM price_slots ps
           WHERE ps.category_id = p.category_id
+            AND ${effectiveSlotPredicate('ps', date)}
             AND ps.end_time > ?
             AND NOT EXISTS (
               SELECT 1
@@ -201,9 +204,10 @@ export class HomeService {
     }
 
     private async countPitches(
+        date: string,
         filters: PitchSearchFilters,
     ): Promise<number> {
-        const where = this.buildWhere(filters);
+        const where = this.buildWhere(filters, date);
         const rows = await this.database.query<{ total: string | number }[]>(
             `
       SELECT COUNT(*) AS total
@@ -222,7 +226,7 @@ export class HomeService {
     // Điều kiện lọc dùng chung cho danh sách và đếm tổng.
     // Cột district/amenities chỉ được đụng tới khi người dùng thật sự lọc,
     // nên chưa chạy migration 003 thì các bộ lọc còn lại vẫn hoạt động.
-    private buildWhere(filters: PitchSearchFilters): {
+    private buildWhere(filters: PitchSearchFilters, date: string): {
         sql: string;
         params: (string | number)[];
     } {
@@ -244,10 +248,12 @@ export class HomeService {
             params.push(filters.district.trim());
         }
 
+        // Giá theo bộ khung giá có hiệu lực của ngày đang xem (thứ trong tuần / ngày lễ)
         const priceSql = `(
           SELECT MIN(ps.price_per_hour)
           FROM price_slots ps
           WHERE ps.category_id = p.category_id
+            AND ${effectiveSlotPredicate('ps', date)}
         )`;
 
         if (filters.min_price !== undefined) {

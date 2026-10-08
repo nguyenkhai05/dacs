@@ -125,4 +125,18 @@ describe('HomeService', () => {
 
     expect(query.mock.calls[0][0]).toContain('price_from ASC');
   });
+
+  it('giá và ca trống tính theo bộ giá của ngày đang xem (thứ trong tuần / ngày lễ)', async () => {
+    const { service, query } = createService([]);
+
+    await service.searchPitches({ date: '2099-01-10', min_price: 100000 }); // thứ Bảy
+
+    for (const [sql] of query.mock.calls as [string][]) {
+      expect(sql).toContain("hd.holiday_date = '2099-01-10'");
+      expect(sql).toContain("dx.day_type = 'Weekend'");
+    }
+    // cả danh sách lẫn đếm tổng đều lọc giá theo đúng bộ giá
+    expect(query.mock.calls).toHaveLength(2);
+  });
 });
+

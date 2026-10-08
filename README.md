@@ -57,15 +57,36 @@ npm test                 # chạy unit test
 | 12 | `POST /reviews` (`booking_id`, `rating` 1-5, `comment` tùy chọn; chỉ đơn `Completed` của chính mình, mỗi đơn 1 lần) | Đăng nhập |
 | 12 | `GET /reviews/booking/:bookingId` (đơn đã đánh giá chưa / có đánh giá được không) | Chủ đơn |
 | 12 | `PUT /reviews/:id` (sửa đánh giá của mình) | Chủ đánh giá |
+| 13 | `GET /dashboard/overview?date&view=day\|week` (KPI, biểu đồ, đơn mới nhất, lượt sắp diễn ra) | Admin, Staff |
+| 15 | `GET /admin/pitches?status&category_id&q` (danh sách sân + tổng quan trạng thái + khoảng giá + số lượt sắp tới) | Admin, Staff |
+| 15 | `GET /admin/pitches/:id` (chi tiết, bảng giá, khoảng trống giá, lịch sử sửa) | Admin, Staff |
+| 15 | `POST /admin/pitches`, `PATCH /admin/pitches/:id` | Admin |
+| 15 | `PATCH /admin/pitches/:id/status` (`Available`/`Maintenance`/`Inactive`; chặn nếu còn lịch sắp tới) | Admin, Staff |
+| 15 | `GET /admin/pitch-categories` (loại sân + bảng giá + khoảng trống giá) | Admin, Staff |
+| 15 | `POST /admin/pitch-categories`, `PATCH /admin/pitch-categories/:id` | Admin |
+| 15 | `GET /admin/pitch-categories/:id/price-slots`, `GET .../price-history` | Admin, Staff |
+| 15 | `POST /admin/pitch-categories/:id/price-slots` (`day_type`: `All`/`Weekday`/`Weekend`/`Holiday`, `start_time`, `end_time`, `price_per_hour`) | Admin |
+| 15 | `GET /admin/pitch-categories/:id/price-preview?date=YYYY-MM-DD` (bảng giá thực tế áp dụng cho một ngày) | Admin, Staff |
+| 15 | `PATCH /admin/price-slots/:id`, `DELETE /admin/price-slots/:id` | Admin |
+| 15 | `GET /admin/holidays?from&to` | Admin, Staff |
+| 15 | `POST /admin/holidays` (`name`, `date`, `end_date?` - tối đa 31 ngày/lần), `DELETE /admin/holidays/:date` | Admin |
 
 Đăng nhập sai quá 5 lần trong 15 phút sẽ bị khóa tạm (HTTP 429).
 
 ## Tiến độ theo màn hình
-- ✅ 01, 02, 04, 05, 06, 07, 09, 10 (backend)
+- ✅ 01, 02, 03, 04, 05, 06, 07, 09, 10, 11, 12 (backend)
 - ⚠️ 08: có QR + webhook + tự hủy đơn hết hạn; cần cấu hình `PAYMENT_*` để chạy thật
-- ✅ 12 (đánh giá, backend)
-- ⏳ 03 (quên mật khẩu), 11 (tài khoản), 12 (đánh giá)
-- ⏳ 13–19 (phân hệ quản trị)
+- ✅ 13 (tổng quan & báo cáo)
+- ✅ 15 (sân & bảng giá: khung giờ + thứ trong tuần + ngày lễ). **Cần chạy `db/migrations/006_price_day_types.sql`** (thêm `price_slots.day_type`, bảng `holidays`, cập nhật trigger chống chồng giờ)
+- ⏳ 14, 16–19 (phân hệ quản trị)
+
+## Quy tắc chọn bảng giá theo ngày (migration 006)
+Mỗi khung giá có `day_type`: `All` (mọi ngày - toàn bộ khung giá cũ được giữ ở loại này), `Weekday` (T2-T6), `Weekend` (T7-CN), `Holiday` (ngày có trong bảng `holidays`).
+Với mỗi loại sân, bộ khung giá của một ngày được chọn theo thứ tự (loại ngày nào có khung giá riêng thì dùng riêng **cả bộ** đó):
+- Ngày lễ: `Holiday` → `Weekend`/`Weekday` (theo thứ thật) → `All`
+- Ngày thường: `Weekend`/`Weekday` → `All`
+
+Áp dụng thống nhất cho: tính tiền khi đặt/báo giá, `availability`, giá & ca trống ở trang chủ, sức chứa ở dashboard. Đơn đã tạo giữ nguyên giá. API quản trị trả `price_gaps` theo từng loại ngày để cảnh báo giờ nào chưa có giá (khách không đặt được giờ đó).
 
 ## Khác biệt giữa schema thực tế và bản đặc tả
 Schema trong `football_pitch_db.sql` được thiết kế chi tiết hơn bản đặc tả (SRS) nên một số bảng đổi tên/tách ra:
