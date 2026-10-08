@@ -25,7 +25,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
 
   // Trang người dùng định vào trước khi bị chuyển sang /login (do RequireAuth gắn vào)
-  const redirectTo = (location.state as { from?: string } | null)?.from ?? '/'
+  const locationState = location.state as { from?: string; registered?: boolean } | null
+  const redirectTo = locationState?.from ?? '/'
 
   // Đã đăng nhập rồi (hoặc vừa đăng nhập xong) → chuyển đi, không hiện form nữa.
   // Lưu ý: phải đặt SAU các lệnh useState (quy tắc của Hooks).
@@ -76,6 +77,10 @@ export default function LoginPage() {
         </div>
 
         {/* noValidate: tắt hộp thoại lỗi mặc định của trình duyệt để dùng thông báo của mình */}
+        {locationState?.registered && (
+          <Alert variant="success">Đăng ký tài khoản thành công. Vui lòng đăng nhập để tiếp tục.</Alert>
+        )}
+
         <form className="login__form" onSubmit={handleSubmit} noValidate>
           <Field
             label="Email hoặc số điện thoại"

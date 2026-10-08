@@ -3,6 +3,7 @@ import { RequireAuth } from './features/auth/RequireAuth'
 import ComingSoonPage from './pages/ComingSoonPage'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 
 // Bảng định tuyến: địa chỉ trên thanh URL → trang nào được vẽ
 export default function App() {
@@ -17,7 +18,7 @@ export default function App() {
         }
       />
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<ComingSoonPage title="Đăng ký" />} />
+      <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ComingSoonPage title="Quên mật khẩu" />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
