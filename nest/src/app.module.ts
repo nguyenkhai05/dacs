@@ -5,7 +5,9 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { BookingsModule } from './bookings/bookings.module.js';
+import { DashboardModule } from './dashboard/dashboard.module.js';
 import { HomeModule } from './home/home.module.js';
+import { PitchAdminModule } from './pitch-admin/pitch-admin.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
 import { PitchesModule } from './pitches/pitches.module.js';
@@ -26,6 +28,8 @@ import { UsersModule } from './users/users.module.js';
     PaymentsModule,
     UsersModule,
     ReviewsModule,
+    DashboardModule,
+    PitchAdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
