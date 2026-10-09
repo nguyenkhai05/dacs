@@ -11,6 +11,7 @@ import { PitchAdminModule } from './pitch-admin/pitch-admin.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
 import { PitchesModule } from './pitches/pitches.module.js';
+import { ServiceAdminModule } from './service-admin/service-admin.module.js';
 import { ServicesModule } from './services/services.module.js';
 import { UsersModule } from './users/users.module.js';
 
@@ -30,6 +31,7 @@ import { UsersModule } from './users/users.module.js';
     ReviewsModule,
     DashboardModule,
     PitchAdminModule,
+    ServiceAdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
