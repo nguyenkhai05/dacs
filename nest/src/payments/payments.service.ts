@@ -23,6 +23,7 @@ import {
     calculateDeposit,
     extractBookingId,
 } from './payments.utils.js';
+import { ISSUE_BY_REASON } from '../payment-admin/payment-admin.utils.js';
 
 const STAFF_ROLES = ['Admin', 'Staff'];
 const SWEEP_BATCH = 100;
@@ -264,7 +265,9 @@ export class PaymentsService {
 
         if (bookingId === null) {
             this.logger.warn(`Webhook không có mã đơn trong nội dung: "${dto.content}"`);
-            return { handled: false, reason: 'no_booking_code' };
+            const result: ConfirmResult = { handled: false, reason: 'no_booking_code' };
+            await this.recordUnmatchedTransfer(dto, result);
+            return result;
         }
 
         const result = await this.database.transaction((connection) =>
@@ -277,9 +280,59 @@ export class PaymentsService {
             this.logger.warn(
                 `Webhook DS${bookingId} (${dto.transfer_amount}đ, ref ${dto.reference_code ?? '-'}) không được xác nhận: ${result.reason}`,
             );
+            await this.recordUnmatchedTransfer(dto, result);
         }
 
         return result;
+    }
+
+    /**
+     * Lưu khoản tiền về nhưng không tự khớp được vào hàng đợi đối soát (màn Admin > Thanh toán).
+     * Chỉ ghi nhận, không bao giờ làm hỏng phản hồi webhook (luôn trả 200 cho ngân hàng).
+     */
+    private async recordUnmatchedTransfer(
+        dto: BankWebhookDto,
+        result: ConfirmResult,
+    ): Promise<void> {
+        const issue = ISSUE_BY_REASON[result.reason ?? ''];
+
+        if (!issue) {
+            return;
+        }
+
+        try {
+            const [payment] = result.payment_id
+                ? await this.database.query<{ amount: string | number }[]>(
+                    `SELECT amount FROM payments WHERE payment_id = ?`,
+                    [result.payment_id],
+                )
+                : [];
+
+            await this.database.query(
+                `INSERT INTO bank_transfer_logs
+                    (booking_id, payment_id, content, reference_code, received_amount, expected_amount, issue)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    result.booking_id ?? null,
+                    result.payment_id ?? null,
+                    dto.content.slice(0, 500),
+                    dto.reference_code?.slice(0, 100) ?? null,
+                    dto.transfer_amount,
+                    payment ? Number(payment.amount) : null,
+                    issue,
+                ],
+            );
+        } catch (error) {
+            const code = (error as { code?: string }).code;
+
+            // Ngân hàng gửi lại cùng một giao dịch (trùng reference_code): bỏ qua
+            if (code !== 'ER_DUP_ENTRY') {
+                this.logger.error(
+                    'Không ghi được khoản chuyển khoản chưa khớp (đã chạy migration 008 chưa?)',
+                    error as Error,
+                );
+            }
+        }
     }
 
     /** Nhân viên/Admin xác nhận thủ công đã nhận tiền cọc. */
@@ -322,8 +375,9 @@ export class PaymentsService {
     /**
      * Lõi xác nhận. Gọi trong transaction. Khóa dòng booking trước rồi mới tới
      * payment/invoice (cùng thứ tự với phần dọn đơn hết hạn) để tránh deadlock.
+     * Public để màn Admin > Thanh toán dùng lại khi đối soát thủ công.
      */
-    private async confirmDeposit(
+    async confirmDeposit(
         connection: PoolConnection,
         bookingId: number,
         paidAmount: number,
