@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Logo } from '../components/Logo'
 import { useAuth } from '../features/auth/useAuth'
 import { apiFetch } from '../lib/api'
@@ -57,6 +57,7 @@ const initialFilters = (): Filters => ({
 
 export default function PitchListPage() {
   const { user, signOut } = useAuth()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [filters, setFilters] = useState<Filters>(() => {
     const initial = initialFilters()
@@ -182,7 +183,7 @@ export default function PitchListPage() {
             {loading ? <div className="pl-grid">{[1, 2, 3, 4, 5, 6].map((n) => <div className="pl-skeleton" key={n}><div className="pl-skeleton__image" /><div className="pl-skeleton__line" /><div className="pl-skeleton__line short" /></div>)}</div> :
               result.pitches.length ? <div className="pl-grid">{result.pitches.map((pitch, index) => <article className="pl-card" key={pitch.pitch_id}>
                 <div className="pl-card__image-wrap"><img src={pitch.image_url || FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]} alt={`Hình ảnh ${pitch.pitch_name}`} loading="lazy" onError={(event) => { event.currentTarget.src = FALLBACK_IMAGES[index % FALLBACK_IMAGES.length] }} /><span className={`pl-status ${pitch.availability === 'Available' ? 'available' : 'full'}`}>{pitch.availability === 'Available' ? 'Còn ca trống' : 'Đã kín ca'}</span><button className="pl-favorite" type="button" aria-label={`Lưu ${pitch.pitch_name}`} title="Tính năng yêu thích sẽ được bổ sung">♡</button></div>
-                <div className="pl-card__body"><div className="pl-card__meta">{pitch.category_name || 'Sân thể thao'} <span>·</span> {pitch.surface_type || 'Mặt sân tiêu chuẩn'}</div><h3>{pitch.pitch_name}</h3><p className="pl-card__location"><span>⌖</span>{pitch.district || 'Địa điểm đang cập nhật'}</p><div className="pl-card__availability"><span>✓</span>{pitch.free_slots} khung giờ còn trống</div><div className="pl-card__footer"><div><small>Giá từ</small><strong>{price(pitch.price_from)}<small>/giờ</small></strong></div><button type="button" className="pl-detail-button" onClick={() => window.alert('Màn 06 – Chi tiết sân sẽ được kết nối ở bước tiếp theo.')}>Xem chi tiết <span>↗</span></button></div></div>
+                <div className="pl-card__body"><div className="pl-card__meta">{pitch.category_name || 'Sân thể thao'} <span>·</span> {pitch.surface_type || 'Mặt sân tiêu chuẩn'}</div><h3>{pitch.pitch_name}</h3><p className="pl-card__location"><span>⌖</span>{pitch.district || 'Địa điểm đang cập nhật'}</p><div className="pl-card__availability"><span>✓</span>{pitch.free_slots} khung giờ còn trống</div><div className="pl-card__footer"><div><small>Giá từ</small><strong>{price(pitch.price_from)}<small>/giờ</small></strong></div><button type="button" className="pl-detail-button" onClick={() => navigate(`/pitches/${pitch.pitch_id}?date=${encodeURIComponent(filters.date)}`)}>Xem chi tiết <span>↗</span></button></div></div>
               </article>)}</div> : <div className="pl-empty"><span>⚽</span><h3>Chưa tìm thấy sân phù hợp</h3><p>Hãy thử đổi ngày chơi hoặc nới rộng bộ lọc để xem thêm kết quả.</p><button type="button" className="pl-primary-button" onClick={clearFilters}>Xóa bộ lọc</button></div>}
 
             {!loading && result.total_pages > 1 && <nav className="pl-pagination" aria-label="Phân trang"><button type="button" disabled={page <= 1} onClick={() => { setSearching(true); void runSearch(page - 1) }}>← Trước</button>{pages.map((number) => <button type="button" key={number} className={number === page ? 'active' : ''} aria-current={number === page ? 'page' : undefined} onClick={() => { setSearching(true); void runSearch(number) }}>{number}</button>)}<button type="button" disabled={page >= result.total_pages} onClick={() => { setSearching(true); void runSearch(page + 1) }}>Sau →</button></nav>}

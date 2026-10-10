@@ -175,7 +175,7 @@ export default function HomePage() {
                     <div className="home-pitch-card__category">{pitch.category_name || 'Sân bóng'} <span>·</span> {pitch.surface_type || 'Mặt sân tiêu chuẩn'}</div>
                     <h3>{pitch.pitch_name}</h3>
                     <div className="home-pitch-card__availability"><span className="home-check">✓</span> {pitch.free_slots} khung giờ còn trống</div>
-                    <div className="home-pitch-card__footer"><div><small>Giá từ</small><strong>{formatPrice(pitch.price_from)}<small>/giờ</small></strong></div><button type="button" className="home-card-action" onClick={() => navigate(`/pitches?q=${encodeURIComponent(pitch.pitch_name)}&date=${encodeURIComponent(date)}`)} aria-label={`Tìm sân ${pitch.pitch_name}`}>Xem sân <span>↗</span></button></div>
+                    <div className="home-pitch-card__footer"><div><small>Giá từ</small><strong>{formatPrice(pitch.price_from)}<small>/giờ</small></strong></div><button type="button" className="home-card-action" onClick={() => navigate(`/pitches/${pitch.pitch_id}?date=${encodeURIComponent(date)}`)} aria-label={`Xem chi tiết ${pitch.pitch_name}`}>Xem sân <span>↗</span></button></div>
                   </div>
                 </article>
               ))}
