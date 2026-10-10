@@ -75,7 +75,7 @@ export interface ServiceLine {
     line_total: number;
 }
 
-interface PreparedBooking {
+export interface PreparedBooking {
     pitch: PitchRow;
     pitchPrice: number;
     lines: ServiceLine[];
@@ -568,7 +568,7 @@ export class BookingsService {
      * Kiểm tra sân + khung giờ + dịch vụ và tính tiền. Dùng chung cho
      * "tính tiền thử" (lock = false) và "tạo đơn" (lock = true).
      */
-    private async prepare(
+    async prepare(
         connection: PoolConnection,
         dto: QuoteBookingDto,
         lock: boolean,
@@ -643,7 +643,7 @@ export class BookingsService {
         };
     }
 
-    private buildAmounts(prepared: PreparedBooking) {
+    buildAmounts(prepared: PreparedBooking) {
         const depositPercent = this.depositPercent;
         const deposit = calculateRefund(prepared.total, depositPercent);
 

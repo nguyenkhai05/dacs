@@ -10,5 +10,6 @@ import { MyBookingsService } from './my-bookings.service.js';
   imports: [DatabaseModule, AuthModule],
   controllers: [BookingsController],
   providers: [BookingsService, MyBookingsService],
+  exports: [BookingsService, MyBookingsService],
 })
 export class BookingsModule { }

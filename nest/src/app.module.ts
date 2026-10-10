@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { AdminBookingsModule } from './admin-bookings/admin-bookings.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { BookingsModule } from './bookings/bookings.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
@@ -34,6 +35,7 @@ import { UsersModule } from './users/users.module.js';
     PitchAdminModule,
     ServiceAdminModule,
     SystemLogModule,
+    AdminBookingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
