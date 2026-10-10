@@ -42,6 +42,7 @@ export interface PitchCard {
     pitch_name: string;
     image_url: string | null;
     surface_type: string;
+    district: string | null;
     category_id: number;
     category_name: string;
     price_from: number | null; // giá/giờ thấp nhất của loại sân trong ngày đang xem
@@ -54,6 +55,7 @@ interface PitchCardRow {
     pitch_name: string;
     image_url: string | null;
     surface_type: string;
+    district: string | null;
     category_id: number;
     category_name: string;
     price_from: string | number | null; // DECIMAL của mysql2 trả về string
@@ -150,6 +152,7 @@ export class HomeService {
         p.pitch_name,
         p.image_url,
         p.surface_type,
+        p.district,
         pc.category_id,
         pc.category_name,
         (
@@ -193,6 +196,7 @@ export class HomeService {
                 pitch_name: row.pitch_name,
                 image_url: row.image_url,
                 surface_type: row.surface_type,
+                district: row.district,
                 category_id: row.category_id,
                 category_name: row.category_name,
                 price_from:

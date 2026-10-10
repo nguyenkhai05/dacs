@@ -157,7 +157,7 @@ export default function HomePage() {
         <section className="home-section home-featured" id="san-noi-bat">
           <div className="home-section__heading">
             <div><span className="home-section__eyebrow">CHỌN SÂN, LÊN KÈO</span><h2>{heading}</h2><p>Khám phá sân bóng và mức giá theo ngày bạn muốn chơi.</p></div>
-            <span className="home-result-count">{loading ? 'Đang tải...' : `${pitches.length} sân được hiển thị`}</span>
+            <div className="home-featured__actions"><span className="home-result-count">{loading ? 'Đang tải...' : `${pitches.length} sân được hiển thị`}</span><Link className="home-view-all" to={`/pitches?date=${encodeURIComponent(date)}`}>Xem tất cả sân →</Link></div>
           </div>
           {error && <div className="home-alert" role="alert"><span>{error}</span><button onClick={() => void loadHome()}>Thử lại</button></div>}
           {loading ? (
@@ -175,7 +175,7 @@ export default function HomePage() {
                     <div className="home-pitch-card__category">{pitch.category_name || 'Sân bóng'} <span>·</span> {pitch.surface_type || 'Mặt sân tiêu chuẩn'}</div>
                     <h3>{pitch.pitch_name}</h3>
                     <div className="home-pitch-card__availability"><span className="home-check">✓</span> {pitch.free_slots} khung giờ còn trống</div>
-                    <div className="home-pitch-card__footer"><div><small>Giá từ</small><strong>{formatPrice(pitch.price_from)}<small>/giờ</small></strong></div><button type="button" className="home-card-action" onClick={() => { setKeyword(pitch.pitch_name); document.getElementById('tim-san')?.scrollIntoView({ behavior: 'smooth' }) }} aria-label={`Tìm sân ${pitch.pitch_name}`}>Xem sân <span>↗</span></button></div>
+                    <div className="home-pitch-card__footer"><div><small>Giá từ</small><strong>{formatPrice(pitch.price_from)}<small>/giờ</small></strong></div><button type="button" className="home-card-action" onClick={() => navigate(`/pitches?q=${encodeURIComponent(pitch.pitch_name)}&date=${encodeURIComponent(date)}`)} aria-label={`Tìm sân ${pitch.pitch_name}`}>Xem sân <span>↗</span></button></div>
                   </div>
                 </article>
               ))}
