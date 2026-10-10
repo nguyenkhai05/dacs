@@ -70,6 +70,14 @@ npm test                 # chạy unit test
 | 15 | `PATCH /admin/price-slots/:id`, `DELETE /admin/price-slots/:id` | Admin |
 | 15 | `GET /admin/holidays?from&to` | Admin, Staff |
 | 15 | `POST /admin/holidays` (`name`, `date`, `end_date?` - tối đa 31 ngày/lần), `DELETE /admin/holidays/:date` | Admin |
+| 18 | `GET /admin/users/customers?q&status=active\|locked&page&limit` (khách + tổng booking, hủy / không đến, phân trang) | Admin |
+| 18 | `GET /admin/users/customers/:id` (chi tiết, ghi chú, booking gần đây kèm hoàn cọc, lịch sử thao tác) | Admin |
+| 18 | `PATCH /admin/users/customers/:id/note` (`note`) | Admin |
+| 18 | `PATCH /admin/users/customers/:id/status` (`is_active`, `reason` - bắt buộc khi khóa) | Admin |
+| 18 | `GET /admin/users/staff` (nhân viên + vai trò, cờ `is_last_admin`, `can_grant_admin`, `can_revoke_admin`) | Admin |
+| 18 | `POST /admin/users/staff` (`full_name`, `email`, `role`: `Admin`/`Staff`, tùy chọn `employee_code`, `position`, `phone_number`) | Admin |
+| 18 | `PATCH /admin/users/staff/:id/role` (`role`: `Admin` = cấp, `Staff` = thu hồi Admin) | Admin |
+| 18 | `POST /admin/users/staff/:id/resend-invite` | Admin |
 
 Đăng nhập sai quá 5 lần trong 15 phút sẽ bị khóa tạm (HTTP 429).
 
@@ -78,7 +86,8 @@ npm test                 # chạy unit test
 - ⚠️ 08: có QR + webhook + tự hủy đơn hết hạn; cần cấu hình `PAYMENT_*` để chạy thật
 - ✅ 13 (tổng quan & báo cáo)
 - ✅ 15 (sân & bảng giá: khung giờ + thứ trong tuần + ngày lễ). **Cần chạy `db/migrations/006_price_day_types.sql`** (thêm `price_slots.day_type`, bảng `holidays`, cập nhật trigger chống chồng giờ)
-- ⏳ 14, 16–19 (phân hệ quản trị)
+- ✅ 18 (người dùng: khách hàng + nhân viên & vai trò). **Cần chạy `db/migrations/009_user_admin.sql`** (bảng `user_admin_history`)
+- ⏳ 14, 16, 17, 19 (phân hệ quản trị)
 
 ## Quy tắc chọn bảng giá theo ngày (migration 006)
 Mỗi khung giá có `day_type`: `All` (mọi ngày - toàn bộ khung giá cũ được giữ ở loại này), `Weekday` (T2-T6), `Weekend` (T7-CN), `Holiday` (ngày có trong bảng `holidays`).
@@ -121,3 +130,11 @@ Schema trong `football_pitch_db.sql` được thiết kế chi tiết hơn bản
 
 Các mốc giờ và % chỉnh trong `.env` (`REFUND_*`). Yêu cầu hoàn được ghi vào `payment_refunds` với trạng thái `Pending`; **việc duyệt chi tiền hoàn là của quản lý ở màn 17** (chưa làm).
 
+
+
+## Người dùng (màn 18)
+- Chỉ **Admin** truy cập. Mọi thao tác ghi kiểm tra lại quyền Admin trong DB (JWT có thể cũ tới `JWT_EXPIRES_IN`).
+- **Khóa khách**: `users.is_active = 0` → không đăng nhập được và không tạo được đơn mới (kể cả token cũ). Không xóa booking/giao dịch; lý do khóa bắt buộc. Tài khoản Admin/Staff không khóa được ở màn này.
+- **Nhân viên**: luôn giữ vai trò `Staff`; "Cấp Admin" thêm vai trò `Admin`, "Thu hồi" gỡ `Admin` (vẫn là `Staff`). **Không thu hồi được Admin hoạt động cuối cùng** (khóa dòng chống thao tác đồng thời).
+- Tạo nhân viên: mật khẩu ngẫu nhiên không ai biết, email hướng dẫn nhân viên tự đặt mật khẩu qua "Quên mật khẩu". Chưa cấu hình SMTP thì `email_sent = false` (dùng `resend-invite` sau). Nếu không gửi `phone_number`, cột SĐT tạm dùng mã nhân viên (do `users.phone_number` là NOT NULL UNIQUE).
+- Lịch sử khóa/mở khóa/đổi vai trò/sửa ghi chú lưu ở `user_admin_history` (màn 19 có thể đọc lại).

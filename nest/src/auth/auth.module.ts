@@ -36,6 +36,6 @@ import { MailService } from './mail.service.js';
   ],
   controllers: [AuthController],
   providers: [AuthService, PasswordResetService, MailService],
-  exports: [JwtModule],
+  exports: [JwtModule, MailService],
 })
 export class AuthModule { }

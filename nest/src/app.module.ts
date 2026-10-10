@@ -16,6 +16,7 @@ import { PitchesModule } from './pitches/pitches.module.js';
 import { ServiceAdminModule } from './service-admin/service-admin.module.js';
 import { ServicesModule } from './services/services.module.js';
 import { SystemLogModule } from './system-log/system-log.module.js';
+import { UserAdminModule } from './user-admin/user-admin.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
@@ -38,6 +39,7 @@ import { UsersModule } from './users/users.module.js';
     SystemLogModule,
     AdminBookingsModule,
     PaymentAdminModule,
+    UserAdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

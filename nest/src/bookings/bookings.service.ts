@@ -2,6 +2,7 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     Injectable,
     InternalServerErrorException,
     NotFoundException,
@@ -695,15 +696,24 @@ export class BookingsService {
         const customer = await this.databaseService.query<
             RowDataPacket[]
         >(
-            `SELECT user_id
-             FROM customers
-             WHERE user_id = ?`,
+            `SELECT c.user_id, u.is_active
+             FROM customers c
+             JOIN users u ON u.user_id = c.user_id
+             WHERE c.user_id = ?`,
             [customerId],
         );
 
         if (customer.length === 0) {
             throw new BadRequestException(
                 'Tài khoản chưa có hồ sơ khách hàng.',
+            );
+        }
+
+        // Tài khoản bị Admin khóa (màn Người dùng) không được đặt thêm sân,
+        // kể cả khi token đăng nhập cũ còn hạn.
+        if (customer[0].is_active === 0 || customer[0].is_active === false) {
+            throw new ForbiddenException(
+                'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản lý để được hỗ trợ.',
             );
         }
 
