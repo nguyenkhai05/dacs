@@ -19,3 +19,18 @@ export function login(identifier: string, password: string) {
     body: { identifier: identifier.trim(), password },
   })
 }
+
+/** POST /auth/admin/login: chỉ tài khoản Admin/Staff đăng nhập được (khách hàng bị từ chối 403). */
+export function adminLogin(identifier: string, password: string) {
+  return apiFetch<LoginResponse>('/auth/admin/login', {
+    method: 'POST',
+    body: { identifier: identifier.trim(), password },
+  })
+}
+
+/** Các vai trò được vào khu vực quản trị (khớp ADMIN_PORTAL_ROLES ở backend). */
+export const ADMIN_ROLES = ['Admin', 'Staff']
+
+export function hasAdminRole(roles: string[] | undefined): boolean {
+  return Boolean(roles?.some((role) => ADMIN_ROLES.includes(role)))
+}

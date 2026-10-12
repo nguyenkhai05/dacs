@@ -136,7 +136,7 @@ export default function BookingPage() {
         <h1>Đơn đặt sân đã được tạo!</h1><p>Đơn đang ở trạng thái chờ xử lý. Hãy lưu lại mã đơn để theo dõi.</p>
         <div className="bk-code"><span>Mã đơn đặt sân</span><strong>{created.booking_code || `#${created.booking_id}`}</strong><button type="button" onClick={() => void navigator.clipboard?.writeText(created.booking_code || String(created.booking_id))}>Sao chép mã</button></div>
         {created.hold_minutes ? <p className="bk-note">Vui lòng hoàn tất bước thanh toán trong khoảng {created.hold_minutes} phút theo hướng dẫn của hệ thống.</p> : null}
-        <div className="bk-success__actions"><Link to="/">Về trang chủ</Link><button type="button" onClick={() => navigate('/booking-history')}>Xem đơn đặt sân</button></div>
+        <div className="bk-success__actions"><Link to="/">Về trang chủ</Link><button type="button" onClick={() => navigate(`/payment/${created.booking_id}`)}>Thanh toán tiền cọc</button></div>
       </section></main>
     </div>
   )

@@ -81,14 +81,26 @@ describe('HomeService', () => {
     expect(params).toContain('Nước uống');
   });
 
-  it('không đụng tới cột district/amenities khi không lọc', async () => {
+  it('không thêm điều kiện lọc quận/tiện ích khi người dùng không lọc', async () => {
     const { service, query } = createService([]);
 
     await service.searchPitches({});
 
     const sql = query.mock.calls[0][0] as string;
-    expect(sql).not.toContain('p.district');
-    expect(sql).not.toContain('p.amenities');
+    expect(sql).not.toContain('p.district = ?');
+    expect(sql).not.toContain('JSON_CONTAINS');
+  });
+
+  it('trả điểm đánh giá trung bình và số lượt đánh giá', async () => {
+    const { service } = createService([
+      { pitch_id: 1, pitch_name: 'A', free_slots: '2', price_from: '200000', rating_avg: '4.6', review_count: '9' },
+      { pitch_id: 2, pitch_name: 'B', free_slots: '0', price_from: null, rating_avg: null, review_count: '0' },
+    ]);
+
+    const result = await service.searchPitches({});
+
+    expect(result.pitches[0]).toMatchObject({ rating_avg: 4.6, review_count: 9 });
+    expect(result.pitches[1]).toMatchObject({ rating_avg: null, review_count: 0 });
   });
 
   it('từ chối min_price lớn hơn max_price', async () => {

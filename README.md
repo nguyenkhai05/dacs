@@ -1,29 +1,38 @@
-# Đặt Sân Nhanh – Backend (NestJS + MySQL)
+# Đặt Sân Nhanh (NestJS + MySQL + React)
 
-Hệ thống đặt sân bóng đá trực tuyến. Repo hiện tập trung hoàn thiện **backend** (thư mục `nest/`) trước, frontend làm sau.
+Hệ thống đặt sân thể thao trực tuyến. `nest/` là backend (API), `frontend/` là giao diện khách hàng (React + Vite + TypeScript).
 
 ## Yêu cầu
-- Node.js 22+ (khuyến nghị dùng Dev Container có sẵn trong `.devcontainer/`)
+- Node.js 22+ (Dev Container trong `.devcontainer/`)
 - MySQL 8+
 
 ## Cài đặt & chạy
 ```bash
-# 1. Tạo database và dữ liệu
+# 1. Tạo database (MỘT file duy nhất, đã gộp toàn bộ migration 001-009 + dữ liệu mẫu)
 mysql -u root -p < football_pitch_db.sql
-mysql -u root -p < db/migrations/001_home_page.sql
-mysql -u root -p < db/migrations/002_seed_home_demo.sql
-mysql -u root -p < db/migrations/003_pitch_filters.sql   # chỉ cần nếu dùng lọc quận/tiện ích
-mysql -u root -p < db/migrations/004_reviews.sql          # bảng đánh giá sau trận (màn 12)
+#    Hoặc dựng MySQL bằng Docker (tự nạp file trên ở lần chạy đầu):
+#    docker compose -f docker-compose.db.yml up -d
 
-# 2. Cấu hình môi trường
+# 2. Cấu hình backend
 cd nest
-cp .env.example .env     # rồi điền DB_*, JWT_SECRET, PAYMENT_*
-
-# 3. Chạy
+cp .env.example .env     # điền DB_*, JWT_SECRET, PAYMENT_*
 npm install
-npm run start:dev        # http://localhost:3000
-npm test                 # chạy unit test
+npm run create-admin     # tạo tài khoản Admin đầu tiên (hỏi email / SĐT / mật khẩu)
+npm run start:dev        # http://localhost:3000  — kiểm tra: http://localhost:3000/health
+
+# 3. Chạy frontend (terminal khác)
+cd frontend
+cp .env.example .env 2>/dev/null || echo "VITE_API_URL=http://localhost:3000" > .env
+npm install
+npm run dev              # http://localhost:5173
 ```
+Thư mục `db/migrations/` chỉ cần khi nâng cấp một database CŨ; cài mới chỉ cần `football_pitch_db.sql`.
+
+### Nếu đăng ký / đăng nhập báo "Không kết nối được máy chủ"
+1. Mở `http://localhost:3000/health`. Không mở được → backend chưa chạy (xem lỗi ở terminal `npm run start:dev`; thường do thiếu `JWT_SECRET` trong `.env`).
+2. `/health` báo lỗi CSDL → kiểm tra MySQL đã chạy và `DB_HOST` đúng. **Trong Dev Container, `localhost` là chính container backend**, không phải MySQL: dùng `host.docker.internal` hoặc tên service MySQL.
+3. `/health` báo `degraded` + `missing_roles` → chạy lại `football_pitch_db.sql` (bảng `roles` thiếu dữ liệu).
+4. Backend log "thiếu bảng/cột" → database chưa đúng phiên bản, nạp lại `football_pitch_db.sql`.
 
 ## Biến môi trường chính
 | Biến | Ý nghĩa |
@@ -32,7 +41,7 @@ npm test                 # chạy unit test
 | `JWT_SECRET`, `JWT_EXPIRES_IN` | Ký token (vd `1h`, `7d` hoặc số giây) |
 | `CORS_ORIGIN` | Origin frontend được gọi API, cách nhau bằng dấu phẩy |
 | `PAYMENT_*`, `DEPOSIT_PERCENT` | Tài khoản nhận cọc VietQR, % cọc, thời gian giữ chỗ |
-| `PAYMENT_WEBHOOK_SECRET` | Secret xác thực webhook ngân hàng (header `x-webhook-secret`) |
+| `PAYMENT_WEBHOOK_SECRET` | Secret xác thực webhook ngân hàng: header `x-webhook-secret` hoặc `Authorization: Apikey <secret>`. Endpoint: `POST /payments/webhook/bank` (định dạng riêng) và `POST /payments/webhook/sepay` (payload kiểu SePay; đối chiếu lại với tài liệu nhà cung cấp trước khi dùng thật) |
 | `REFUND_FULL_HOURS`, `REFUND_PARTIAL_HOURS`, `REFUND_PARTIAL_PERCENT` | Chính sách hoàn cọc khi khách hủy (mặc định 24h / 12h / 50%) |
 
 ## API hiện có
@@ -87,7 +96,8 @@ npm test                 # chạy unit test
 - ✅ 13 (tổng quan & báo cáo)
 - ✅ 15 (sân & bảng giá: khung giờ + thứ trong tuần + ngày lễ). **Cần chạy `db/migrations/006_price_day_types.sql`** (thêm `price_slots.day_type`, bảng `holidays`, cập nhật trigger chống chồng giờ)
 - ✅ 18 (người dùng: khách hàng + nhân viên & vai trò). **Cần chạy `db/migrations/009_user_admin.sql`** (bảng `user_admin_history`)
-- ⏳ 14, 16, 17, 19 (phân hệ quản trị)
+- ✅ 14, 16, 17, 19 (phân hệ quản trị): backend đã có (`/admin/bookings`, `/admin/services`, `/admin/payments`, `/admin/system-log`); **frontend quản trị (13-19) chưa làm**
+- Frontend khách hàng: ✅ 01-08 (08 = `/payment/:bookingId`), ⏳ 09-12
 
 ## Quy tắc chọn bảng giá theo ngày (migration 006)
 Mỗi khung giá có `day_type`: `All` (mọi ngày - toàn bộ khung giá cũ được giữ ở loại này), `Weekday` (T2-T6), `Weekend` (T7-CN), `Holiday` (ngày có trong bảng `holidays`).
@@ -111,7 +121,7 @@ Schema trong `football_pitch_db.sql` được thiết kế chi tiết hơn bản
 | Khóa slot bằng Redis | Khóa dòng sân `SELECT ... FOR UPDATE` + đơn `Pending` có hạn giữ chỗ |
 
 ## Lưu ý Git
-- `node_modules/` ở thư mục gốc không được commit (đã có `.gitignore`).
+- `node_modules/` không được commit (đã có `.gitignore` ở gốc và `frontend/`). Nếu trước đó đã lỡ commit: `git rm -r --cached node_modules frontend/node_modules`.
 - Không commit `.env`; dùng `.env.example` làm mẫu.
 
 ## Dịch vụ đi kèm & tồn kho (màn 07)

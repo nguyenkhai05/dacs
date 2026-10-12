@@ -52,3 +52,8 @@
   color: var(--color-muted);
   font-size: 0.9rem;
 }
+
+.login__mode{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:10px;background:#eef3ef}
+.login__mode button{border:0;border-radius:8px;background:transparent;padding:9px 12px;font-size:13px;font-weight:700;color:#5f7166;cursor:pointer}
+.login__mode button.is-active{background:#fff;color:#157647;box-shadow:0 1px 4px #15402a1f}
+.login__mode button:focus-visible{outline:2px solid #157647;outline-offset:2px}

@@ -15,6 +15,7 @@ function renderLogin(entry: string | { pathname: string; state?: unknown } = '/l
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<p>TRANG CHỦ</p>} />
           <Route path="/bookings" element={<p>TRANG LỊCH ĐẶT</p>} />
+          <Route path="/admin" element={<p>TRANG QUẢN TRỊ</p>} />
           <Route path="/register" element={<p>TRANG ĐĂNG KÝ</p>} />
           <Route path="/forgot-password" element={<p>TRANG QUÊN MẬT KHẨU</p>} />
         </Routes>
@@ -230,4 +231,63 @@ describe('LoginPage', () => {
 
     expect(screen.getByText('TRANG ĐĂNG KÝ')).toBeInTheDocument()
   })
+
+  describe('tuỳ chọn Quản trị', () => {
+    it('bấm "Quản trị": đổi tiêu đề và ẩn liên kết đăng ký', async () => {
+      const user = userEvent.setup()
+      renderLogin()
+
+      await user.click(screen.getByRole('button', { name: 'Quản trị' }))
+
+      expect(screen.getByRole('heading', { name: 'Khu vực quản trị' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Quản trị' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.queryByRole('link', { name: 'Đăng ký ngay' })).not.toBeInTheDocument()
+    })
+
+    it('mở /login?mode=admin thì mặc định ở chế độ quản trị', () => {
+      renderLogin('/login?mode=admin')
+
+      expect(screen.getByRole('heading', { name: 'Khu vực quản trị' })).toBeInTheDocument()
+    })
+
+    it('đăng nhập quản trị: gọi /auth/admin/login và chuyển sang /admin', async () => {
+      const fetchMock = mockFetch(200, {
+        access_token: fakeJwt(),
+        user: { ...sampleUser, roles: ['Admin', 'Staff'] },
+      })
+      const user = userEvent.setup()
+      renderLogin()
+
+      await user.click(screen.getByRole('button', { name: 'Quản trị' }))
+      await fillAndSubmit(user)
+
+      expect(await screen.findByText('TRANG QUẢN TRỊ')).toBeInTheDocument()
+      const [url] = fetchMock.mock.calls[0] as [string]
+      expect(url).toMatch(/\/auth\/admin\/login$/)
+    })
+
+    it('tài khoản khách bị server từ chối (403) → hiện thông báo, không chuyển trang', async () => {
+      mockFetch(403, { message: 'Tài khoản này không có quyền truy cập trang quản trị' })
+      const user = userEvent.setup()
+      renderLogin('/login?mode=admin')
+
+      await fillAndSubmit(user)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('không có quyền truy cập trang quản trị')
+      expect(screen.queryByText('TRANG QUẢN TRỊ')).not.toBeInTheDocument()
+    })
+
+    it('chế độ khách hàng vẫn gọi /auth/login như cũ', async () => {
+      const fetchMock = mockFetch(200, successBody())
+      const user = userEvent.setup()
+      renderLogin()
+
+      await fillAndSubmit(user)
+
+      await screen.findByText('TRANG CHỦ')
+      const [url] = fetchMock.mock.calls[0] as [string]
+      expect(url).toMatch(/\/auth\/login$/)
+    })
+  })
 })
+

@@ -43,6 +43,7 @@ export class PaymentExpiryService implements OnModuleInit, OnModuleDestroy {
         this.running = true;
         try {
             await this.payments.expireUnpaidBookings();
+            await this.payments.markPlayingBookings();
         } catch (error) {
             this.logger.error('Lỗi khi hủy đơn hết hạn', error as Error);
         } finally {

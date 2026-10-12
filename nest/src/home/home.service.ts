@@ -48,6 +48,8 @@ export interface PitchCard {
     price_from: number | null; // giá/giờ thấp nhất của loại sân trong ngày đang xem
     free_slots: number; // số ca (khung giá) còn trống trong ngày
     availability: 'Available' | 'Full';
+    rating_avg: number | null; // điểm đánh giá trung bình (null nếu chưa có đánh giá)
+    review_count: number;
 }
 
 interface PitchCardRow {
@@ -60,6 +62,8 @@ interface PitchCardRow {
     category_name: string;
     price_from: string | number | null; // DECIMAL của mysql2 trả về string
     free_slots: string | number;
+    rating_avg: string | number | null;
+    review_count: string | number;
 }
 
 @Injectable()
@@ -176,7 +180,17 @@ export class HomeService {
                 AND b.start_time < ps.end_time
                 AND b.end_time > ps.start_time
             )
-        ) AS free_slots
+        ) AS free_slots,
+        (
+          SELECT ROUND(AVG(r.rating), 1)
+          FROM reviews r
+          WHERE r.pitch_id = p.pitch_id
+        ) AS rating_avg,
+        (
+          SELECT COUNT(*)
+          FROM reviews r
+          WHERE r.pitch_id = p.pitch_id
+        ) AS review_count
       FROM pitches p
       JOIN pitch_categories pc
         ON pc.category_id = p.category_id
@@ -203,6 +217,9 @@ export class HomeService {
                     row.price_from === null ? null : Number(row.price_from),
                 free_slots: freeSlots,
                 availability: freeSlots > 0 ? 'Available' : 'Full',
+                rating_avg:
+                    row.rating_avg === null ? null : Number(row.rating_avg),
+                review_count: Number(row.review_count ?? 0),
             };
         });
     }
@@ -228,8 +245,8 @@ export class HomeService {
     }
 
     // Điều kiện lọc dùng chung cho danh sách và đếm tổng.
-    // Cột district/amenities chỉ được đụng tới khi người dùng thật sự lọc,
-    // nên chưa chạy migration 003 thì các bộ lọc còn lại vẫn hoạt động.
+    // Lưu ý: các cột district/amenities (migration 003) là BẮT BUỘC có trong CSDL
+    // vì danh sách sân luôn trả về district.
     private buildWhere(filters: PitchSearchFilters, date: string): {
         sql: string;
         params: (string | number)[];

@@ -2,6 +2,7 @@
 import {
     Injectable,
     UnauthorizedException,
+    ForbiddenException,
     ConflictException,
     BadRequestException,
     HttpException,
@@ -11,10 +12,14 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
+import { mapDbError } from '../common/db-error.util.js';
 import { DatabaseService } from '../database/database.service.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { LoginRateLimiter } from './login-rate-limiter.js';
+
+/** Vai trò được vào trang quản trị. Muốn CHỈ Admin: đổi thành ['Admin']. */
+export const ADMIN_PORTAL_ROLES = ['Admin', 'Staff'];
 
 interface UserRow {
     user_id: number;
@@ -32,6 +37,13 @@ interface IdRow {
     user_id: number;
 }
 
+interface PhoneRow {
+    user_id: number;
+    email: string | null;
+    is_active: number | boolean;
+    is_employee: number | boolean;
+}
+
 @Injectable()
 export class AuthService {
     private readonly loginLimiter = new LoginRateLimiter();
@@ -42,6 +54,27 @@ export class AuthService {
     ) { }
 
     // ĐĂNG NHẬP (email hoặc số điện thoại)
+    /**
+     * Đăng nhập trang quản trị: dùng đúng quy trình của login() (kiểm tra mật khẩu, khóa tạm khi sai nhiều lần,
+     * tài khoản bị khóa...) rồi CHỈ cho qua nếu có vai trò Admin/Staff.
+     * Tài khoản khách hàng nhập đúng mật khẩu vẫn bị từ chối (403).
+     */
+    async adminLogin(loginDto: LoginDto) {
+        const result = await this.login(loginDto);
+
+        const allowed = result.user.roles.some((role) =>
+            ADMIN_PORTAL_ROLES.includes(role),
+        );
+
+        if (!allowed) {
+            throw new ForbiddenException(
+                'Tài khoản này không có quyền truy cập trang quản trị',
+            );
+        }
+
+        return result;
+    }
+
     async login(loginDto: LoginDto) {
         const { password } = loginDto;
         const identifier = (
@@ -187,18 +220,34 @@ export class AuthService {
             );
         }
 
-        // 4. Kiểm tra số điện thoại đã tồn tại
-        const existingPhone = await this.database.query<IdRow[]>(
+        // 4. Kiểm tra số điện thoại đã tồn tại.
+        //    Khách vãng lai do lễ tân tạo tại quầy có email = NULL và không phải nhân viên:
+        //    họ được phép "nhận lại" tài khoản bằng cách đăng ký với đúng SĐT đó
+        //    (nếu không, họ sẽ không bao giờ đăng ký / đặt lại mật khẩu được).
+        const existingPhone = await this.database.query<PhoneRow[]>(
             `
-            SELECT user_id
-            FROM users
-            WHERE phone_number = ?
+            SELECT
+                u.user_id,
+                u.email,
+                u.is_active,
+                EXISTS (
+                    SELECT 1 FROM employees e WHERE e.user_id = u.user_id
+                ) AS is_employee
+            FROM users u
+            WHERE u.phone_number = ?
             LIMIT 1
             `,
             [phoneNumber],
         );
 
-        if (existingPhone.length > 0) {
+        const phoneOwner = existingPhone[0];
+        const claimable =
+            phoneOwner !== undefined &&
+            phoneOwner.email === null &&
+            !Number(phoneOwner.is_employee ?? 0) &&
+            Number(phoneOwner.is_active ?? 1) !== 0;
+
+        if (phoneOwner && !claimable) {
             throw new ConflictException(
                 'Số điện thoại đã được sử dụng',
             );
@@ -207,8 +256,20 @@ export class AuthService {
         // 5. Mã hóa mật khẩu
         const passwordHash = await bcrypt.hash(password, 10);
 
+        // 5b. Nhận lại tài khoản khách vãng lai đã có (giữ nguyên lịch sử đặt sân)
+        if (claimable && phoneOwner) {
+            return this.claimGuestAccount(
+                phoneOwner.user_id,
+                fullName,
+                phoneNumber,
+                email,
+                passwordHash,
+            );
+        }
+
         // 6. Tạo tài khoản, hồ sơ khách hàng và gán vai trò
-        return await this.database.transaction(async (connection) => {
+        try {
+            return await this.database.transaction(async (connection) => {
             // Tìm vai trò Customer
             const [roleRows] = await connection.execute(
                 `
@@ -280,6 +341,56 @@ export class AuthService {
                     role: 'Customer',
                 },
             };
-        });
+            });
+        } catch (error) {
+            // Hai request đăng ký trùng nhau cùng lúc: UNIQUE của MySQL chặn, trả 409 thay vì 500.
+            const mapped = mapDbError(error);
+            if (mapped?.status === 409) {
+                throw new ConflictException(mapped.message);
+            }
+            throw error;
+        }
+    }
+
+    private async claimGuestAccount(
+        userId: number,
+        fullName: string,
+        phoneNumber: string,
+        email: string,
+        passwordHash: string,
+    ) {
+        try {
+            await this.database.transaction(async (connection) => {
+                const [result] = await connection.execute(
+                    `
+                    UPDATE users
+                    SET full_name = ?, email = ?, password_hash = ?
+                    WHERE user_id = ? AND email IS NULL
+                    `,
+                    [fullName, email, passwordHash, userId],
+                );
+
+                if ((result as { affectedRows: number }).affectedRows !== 1) {
+                    throw new ConflictException('Số điện thoại đã được sử dụng');
+                }
+            });
+        } catch (error) {
+            const mapped = mapDbError(error);
+            if (mapped?.status === 409) {
+                throw new ConflictException(mapped.message);
+            }
+            throw error;
+        }
+
+        return {
+            message: 'Đăng ký tài khoản thành công',
+            user: {
+                user_id: userId,
+                full_name: fullName,
+                phone_number: phoneNumber,
+                email,
+                role: 'Customer',
+            },
+        };
     }
 }

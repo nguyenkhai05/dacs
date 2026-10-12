@@ -16,6 +16,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { BankWebhookDto } from './dto/bank-webhook.dto.js';
+import { SepayWebhookDto } from './dto/sepay-webhook.dto.js';
 import { CreateDepositDto } from './dto/create-deposit.dto.js';
 import { PaymentsService } from './payments.service.js';
 
@@ -48,11 +49,29 @@ export class PaymentsController {
     @HttpCode(200)
     async bankWebhook(
         @Headers('x-webhook-secret') secret: string | undefined,
+        @Headers('authorization') authorization: string | undefined,
         @Body() dto: BankWebhookDto,
     ) {
-        this.paymentsService.verifyWebhookSecret(secret);
+        this.paymentsService.verifyWebhookSecret(
+            secret ?? this.paymentsService.secretFromAuthorization(authorization),
+        );
         const result = await this.paymentsService.handleBankWebhook(dto);
         // Luôn trả 200 để nhà cung cấp không gửi lại vô hạn; chi tiết nằm trong body
+        return { success: true, ...result };
+    }
+
+    // Webhook kiểu SePay: xác thực bằng header "Authorization: Apikey <PAYMENT_WEBHOOK_SECRET>"
+    @Post('webhook/sepay')
+    @HttpCode(200)
+    async sepayWebhook(
+        @Headers('authorization') authorization: string | undefined,
+        @Headers('x-webhook-secret') secret: string | undefined,
+        @Body() body: SepayWebhookDto,
+    ) {
+        this.paymentsService.verifyWebhookSecret(
+            secret ?? this.paymentsService.secretFromAuthorization(authorization),
+        );
+        const result = await this.paymentsService.handleSepayWebhook(body);
         return { success: true, ...result };
     }
 

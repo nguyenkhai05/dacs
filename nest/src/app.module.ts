@@ -7,6 +7,7 @@ import { AdminBookingsModule } from './admin-bookings/admin-bookings.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { BookingsModule } from './bookings/bookings.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
+import { HealthModule } from './health/health.module.js';
 import { HomeModule } from './home/home.module.js';
 import { PaymentAdminModule } from './payment-admin/payment-admin.module.js';
 import { PitchAdminModule } from './pitch-admin/pitch-admin.module.js';
@@ -25,6 +26,7 @@ import { UsersModule } from './users/users.module.js';
       isGlobal: true,
     }),
 
+    HealthModule,
     PitchesModule,
     AuthModule,
     HomeModule,

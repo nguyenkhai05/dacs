@@ -1,0 +1,21 @@
+.sh{background:#fff;border-bottom:1px solid #e1e8e3;position:sticky;top:0;z-index:20}
+.sh a{text-decoration:none}
+.sh__inner{width:min(1200px,calc(100% - 48px));min-height:74px;margin:0 auto;display:flex;align-items:center;gap:32px}
+.sh__brand{display:flex;align-items:center;flex-shrink:0}
+.sh__brand .logo{display:inline-flex;align-items:center;gap:9px;color:#137448;font-weight:800;font-size:17px}
+.sh__brand .logo__icon{width:29px;height:29px}
+.sh__nav{display:flex;align-items:center;gap:28px;margin-left:auto}
+.sh__nav a,.sh__login{font-size:13px;font-weight:650;color:#627168}
+.sh__nav a:hover,.sh__nav a.is-active,.sh__login:hover{color:#16804b}
+.sh__actions{display:flex;align-items:center;gap:16px}
+.sh__greeting{font-size:12px;color:#64766a;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sh__button{display:inline-flex;align-items:center;justify-content:center;border:1px solid #157647;border-radius:8px;background:#157647;color:#fff;padding:10px 16px;font-size:12px;font-weight:750;cursor:pointer}
+.sh__button:hover{background:#105c37}
+.sh__button--outline{background:#fff;color:#176b42}
+.sh__button--outline:hover{background:#f1f8f3}
+@media (max-width:760px){
+  .sh__inner{width:calc(100% - 28px);min-height:62px;gap:12px}
+  .sh__nav{display:none}
+  .sh__actions{margin-left:auto;gap:10px}
+  .sh__greeting{display:none}
+}

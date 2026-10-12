@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 
 import { DatabaseModule } from '../database/database.module.js';
 import { AuthController } from './auth.controller.js';
+import { AuthUserVerifier } from './auth-user-verifier.js';
 import { AuthService } from './auth.service.js';
 import { PasswordResetService } from './password-reset.service.js';
 import { MailService } from './mail.service.js';
@@ -35,7 +36,7 @@ import { MailService } from './mail.service.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, PasswordResetService, MailService],
-  exports: [JwtModule, MailService],
+  providers: [AuthService, PasswordResetService, MailService, AuthUserVerifier],
+  exports: [JwtModule, MailService, AuthUserVerifier],
 })
 export class AuthModule { }

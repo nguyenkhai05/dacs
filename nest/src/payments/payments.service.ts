@@ -17,6 +17,7 @@ import type { AuthUser } from '../auth/auth-user.js';
 import { restoreServiceStock } from '../bookings/booking-stock.js';
 import { DatabaseService } from '../database/database.service.js';
 import type { BankWebhookDto } from './dto/bank-webhook.dto.js';
+import type { SepayWebhookDto } from './dto/sepay-webhook.dto.js';
 import {
     buildTransferContent,
     buildVietQrUrl,
@@ -259,6 +260,45 @@ export class PaymentsService {
         }
     }
 
+    /** Lấy secret từ header Authorization dạng "Apikey xxx" hoặc "Bearer xxx". */
+    secretFromAuthorization(header: string | undefined): string | undefined {
+        if (!header) return undefined;
+        const match = /^(?:apikey|bearer)\s+(.+)$/i.exec(header.trim());
+        return match ? match[1] : undefined;
+    }
+
+    /**
+     * Webhook kiểu SePay: chuẩn hóa về BankWebhookDto rồi dùng chung luồng xác nhận cọc.
+     * - Bỏ qua giao dịch tiền RA (transferType = 'out').
+     * - Nếu có cấu hình PAYMENT_ACCOUNT_NUMBER thì chỉ nhận tiền vào đúng tài khoản đó.
+     */
+    async handleSepayWebhook(
+        body: SepayWebhookDto,
+    ): Promise<ConfirmResult | { handled: false; reason: string }> {
+        if (body.transferType === 'out') {
+            return { handled: false, reason: 'ignored_outgoing' };
+        }
+
+        const expectedAccount = this.config.get<string>('PAYMENT_ACCOUNT_NUMBER');
+        if (
+            expectedAccount &&
+            body.accountNumber &&
+            body.accountNumber !== expectedAccount
+        ) {
+            return { handled: false, reason: 'ignored_other_account' };
+        }
+
+        const content = [body.content, body.description, body.code]
+            .filter((value): value is string => Boolean(value))
+            .join(' ');
+
+        return this.handleBankWebhook({
+            content,
+            transfer_amount: Number(body.transferAmount),
+            reference_code: body.referenceCode,
+        });
+    }
+
     /** Ngân hàng báo có tiền vào: tìm đơn theo nội dung chuyển khoản. */
     async handleBankWebhook(dto: BankWebhookDto): Promise<ConfirmResult> {
         const bookingId = extractBookingId(dto.content);
@@ -456,6 +496,23 @@ export class PaymentsService {
     // ---------------------------------------------------------------
 
     /** Hủy các đơn Pending quá hạn giữ chỗ để nhả sân. Trả về số đơn đã hủy. */
+    /**
+     * Đơn đã check-in và đã tới giờ đá thì chuyển sang "Đang đá" (Playing).
+     * Chạy định kỳ cùng bộ quét hết hạn giữ chỗ; trả về số đơn được chuyển.
+     */
+    async markPlayingBookings(): Promise<number> {
+        const result = await this.database.query<{ affectedRows?: number }>(
+            `
+            UPDATE bookings
+            SET status = 'Playing'
+            WHERE status = 'CheckedIn'
+              AND TIMESTAMP(booking_date, start_time) <= NOW()
+            `,
+        );
+
+        return Number(result?.affectedRows ?? 0);
+    }
+
     async expireUnpaidBookings(): Promise<number> {
         const holdSeconds = Math.floor(this.holdMinutes * 60);
 

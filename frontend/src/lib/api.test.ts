@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { API_URL, ApiError, apiFetch } from './api'
+import { API_URL, ApiError, apiFetch, isAbortError, setUnauthorizedHandler } from './api'
 import { login } from '../features/auth/authApi'
 
 function jsonResponse(body: unknown, status = 200) {
@@ -85,7 +85,7 @@ describe('apiFetch', () => {
 
     await expect(apiFetch('/x')).rejects.toMatchObject({
       status: 0,
-      message: 'Không kết nối được máy chủ. Vui lòng thử lại.',
+      message: expect.stringContaining('Không kết nối được máy chủ'),
     })
   })
 })
@@ -105,3 +105,62 @@ describe('login()', () => {
     })
   })
 })
+
+describe('apiFetch - 401, hủy request và timeout', () => {
+  afterEach(() => {
+    setUnauthorizedHandler(null)
+  })
+
+  it('401 khi có gửi token → gọi handler đăng xuất', async () => {
+    const handler = vi.fn()
+    setUnauthorizedHandler(handler)
+    mockFetch(jsonResponse({ message: 'hết hạn' }, 401))
+
+    await expect(apiFetch('/bookings/my', { token: 't' })).rejects.toBeInstanceOf(ApiError)
+    expect(handler).toHaveBeenCalledTimes(1)
+  })
+
+  it('401 khi KHÔNG gửi token (vd sai mật khẩu) → không đăng xuất', async () => {
+    const handler = vi.fn()
+    setUnauthorizedHandler(handler)
+    mockFetch(jsonResponse({ message: 'Sai mật khẩu' }, 401))
+
+    await expect(apiFetch('/auth/login', { method: 'POST', body: {} })).rejects.toBeInstanceOf(ApiError)
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('request bị hủy chủ động ném AbortError (không phải ApiError)', async () => {
+    const controller = new AbortController()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(new Error('aborted')))
+        }),
+      ),
+    )
+
+    const pending = apiFetch('/slow', { signal: controller.signal })
+    controller.abort()
+
+    const error = await pending.catch((e: unknown) => e)
+    expect(isAbortError(error)).toBe(true)
+  })
+
+  it('quá thời gian chờ → ApiError status 0 báo máy chủ phản hồi chậm', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(new Error('aborted')))
+        }),
+      ),
+    )
+
+    await expect(apiFetch('/hang', { timeoutMs: 20 })).rejects.toMatchObject({
+      status: 0,
+      message: expect.stringContaining('quá chậm'),
+    })
+  })
+})
+

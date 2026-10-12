@@ -1,0 +1,19 @@
+.adm-page{min-height:100vh;background:#f4f7f5;color:#17211b}
+.adm-header{display:flex;align-items:center;gap:12px;background:#fff;border-bottom:1px solid #e1e9e3;padding:14px 24px}
+.adm-header .logo{display:inline-flex;align-items:center;gap:8px;color:#137448;font-weight:800}
+.adm-header .logo__icon{width:26px;height:26px}
+.adm-badge{background:#173b2b;color:#fff;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700}
+.adm-header__right{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:13px;color:#5f7166}
+.adm-header__right button{border:1px solid #cfe0d4;background:#fff;color:#176b42;border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer}
+.adm-main{width:min(960px,calc(100% - 32px));margin:0 auto;padding:28px 0 56px}
+.adm-main h1{font-size:24px;margin:0 0 6px;color:#173b2b}
+.adm-main h2{font-size:16px;margin:26px 0 12px;color:#173b2b}
+.adm-ok{color:#157647;font-size:13px;margin:0}
+.adm-error{color:#b42318;background:#fee4e2;border-radius:8px;padding:10px 12px;font-size:13px}
+.adm-grid{list-style:none;margin:0 0 20px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.adm-grid li{display:flex;flex-direction:column;gap:4px;background:#fff;border:1px dashed #cfe0d4;border-radius:12px;padding:14px}
+.adm-grid b{color:#157647;font-size:12px}.adm-grid small{color:#8a978f}
+.admin-denied{max-width:480px;margin:12vh auto;text-align:center;padding:24px;font-family:inherit}
+.admin-denied div{display:flex;gap:10px;justify-content:center;margin-top:14px}
+.admin-denied button,.admin-denied a{border:1px solid #157647;background:#157647;color:#fff;border-radius:8px;padding:9px 14px;font-weight:700;text-decoration:none;cursor:pointer;font-size:13px}
+.admin-denied a{background:#fff;color:#176b42}

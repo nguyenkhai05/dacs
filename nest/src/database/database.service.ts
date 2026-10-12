@@ -6,6 +6,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import mysql, { Pool, PoolConnection } from 'mysql2/promise';
 
+const DB_TIMEZONE = '+07:00';
+
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
     private readonly pool: Pool;
@@ -41,6 +43,15 @@ export class DatabaseService implements OnModuleDestroy {
             waitForConnections: true,
             connectionLimit: 10,
             queueLimit: 0,
+            // Không để request treo vô hạn khi MySQL không tới được.
+            connectTimeout: 10_000,
+            // Nghiệp vụ tính theo giờ Việt Nam: đồng bộ múi giờ giữa Node và MySQL.
+            timezone: DB_TIMEZONE,
+        });
+
+        // Mỗi kết nối mới dùng cùng múi giờ để NOW()/CURRENT_TIMESTAMP khớp với code.
+        this.pool.on('connection', (connection) => {
+            connection.query(`SET time_zone = '${DB_TIMEZONE}'`);
         });
     }
 
