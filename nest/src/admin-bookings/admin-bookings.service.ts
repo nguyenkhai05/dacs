@@ -24,6 +24,7 @@ import {
 import { restoreServiceStock } from '../bookings/booking-stock.js';
 import { BookingsService } from '../bookings/bookings.service.js';
 import { MyBookingsService } from '../bookings/my-bookings.service.js';
+import { dayTypeCandidates, selectEffectiveSlots } from '../common/pricing.util.js';
 import { getVietnamNow } from '../common/time.util.js';
 import { DatabaseService } from '../database/database.service.js';
 import { buildTransferContent } from '../payments/payments.utils.js';
@@ -367,7 +368,7 @@ export class AdminBookingsService {
         const date = query.date ?? today;
         this.assertRealDate(date);
 
-        const [pitches, priceSlots, bookingRows] = await Promise.all([
+        const [pitches, priceSlots, bookingRows, holidayRows] = await Promise.all([
             this.database.query<
                 (RowDataPacket & {
                     pitch_id: number;
@@ -386,8 +387,13 @@ export class AdminBookingsService {
                 `,
             ),
             this.database.query<
-                (RowDataPacket & { category_id: number; start_time: string; end_time: string })[]
-            >(`SELECT category_id, start_time, end_time FROM price_slots`),
+                (RowDataPacket & {
+                    category_id: number;
+                    day_type: string;
+                    start_time: string;
+                    end_time: string;
+                })[]
+            >(`SELECT category_id, day_type, start_time, end_time FROM price_slots`),
             this.database.query<
                 (RowDataPacket & {
                     booking_id: number;
@@ -409,14 +415,32 @@ export class AdminBookingsService {
                 `,
                 [date],
             ),
+            this.database.query<RowDataPacket[]>(
+                `SELECT 1 FROM holidays WHERE holiday_date = ? LIMIT 1`,
+                [date],
+            ),
         ]);
 
-        // Khung giá theo loại sân
-        const coverageByCategory = new Map<number, TimeRange[]>();
+        // Khung giá có hiệu lực của từng loại sân trong ngày này: giá riêng cho
+        // ngày lễ / cuối tuần / ngày thường nếu có, không thì dùng giá "mọi ngày"
+        // (cùng quy tắc với tính tiền khi đặt sân)
+        const candidates = dayTypeCandidates(date, holidayRows.length > 0);
+        const slotsByCategory = new Map<number, typeof priceSlots>();
         for (const slot of priceSlots) {
-            const list = coverageByCategory.get(slot.category_id) ?? [];
-            list.push({ start: toMinutes(slot.start_time), end: toMinutes(slot.end_time) });
-            coverageByCategory.set(slot.category_id, list);
+            const list = slotsByCategory.get(slot.category_id) ?? [];
+            list.push(slot);
+            slotsByCategory.set(slot.category_id, list);
+        }
+
+        const coverageByCategory = new Map<number, TimeRange[]>();
+        for (const [categoryId, slots] of slotsByCategory) {
+            coverageByCategory.set(
+                categoryId,
+                selectEffectiveSlots(slots, candidates).map((slot) => ({
+                    start: toMinutes(slot.start_time),
+                    end: toMinutes(slot.end_time),
+                })),
+            );
         }
 
         // Cửa sổ giờ: theo query, hoặc theo bảng giá của các sân đang hiển thị
