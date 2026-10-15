@@ -13,7 +13,7 @@ function LoginProbe() {
 function setup(roles: string[] | null) {
   const user = roles ? { user_id: 1, full_name: 'Người Dùng', email: null, roles } : null
   return render(
-    <AuthContext.Provider value={{ user, token: user ? 't' : null, signIn: () => {}, signOut: () => {} }}>
+    <AuthContext.Provider value={{ user, token: user ? 't' : null, signIn: () => {}, signOut: () => {}, updateUser: () => {} }}>
       <MemoryRouter initialEntries={['/admin']}>
         <Routes>
           <Route path="/admin" element={<RequireRole roles={['Admin', 'Staff']}><div>khu quản trị</div></RequireRole>} />

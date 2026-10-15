@@ -42,6 +42,13 @@ export class UpdateProfileDto {
     @MaxLength(255, { message: 'Địa chỉ tối đa 255 ký tự' })
     address?: string;
 
+    // 'YYYY-MM-DD'; chuỗi rỗng = xóa ngày sinh. Tính hợp lệ của ngày kiểm tra ở service.
+    @IsOptional()
+    @Transform(trim)
+    @IsString({ message: 'Ngày sinh phải là chuỗi' })
+    @Matches(/^(\d{4}-\d{2}-\d{2})?$/, { message: 'Ngày sinh phải có dạng YYYY-MM-DD' })
+    dateOfBirth?: string;
+
     // Đường dẫn ảnh đại diện (http/https). Gửi null để xóa ảnh.
     @IsOptional()
     @Transform(trim)

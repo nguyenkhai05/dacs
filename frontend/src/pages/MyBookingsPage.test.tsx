@@ -60,7 +60,7 @@ function mockApi(list: unknown, activity: unknown = { activities: [] }) {
 
 function renderPage() {
   return render(
-    <AuthContext.Provider value={{ user: sampleUser, token: 'token-abc', signIn: () => {}, signOut: () => {} }}>
+    <AuthContext.Provider value={{ user: sampleUser, token: 'token-abc', signIn: () => {}, signOut: () => {}, updateUser: () => {} }}>
       <MemoryRouter initialEntries={['/bookings']}>
         <MyBookingsPage />
       </MemoryRouter>

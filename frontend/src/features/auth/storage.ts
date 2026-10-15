@@ -70,6 +70,22 @@ export function loadSession(): Session | null {
   return null
 }
 
+/** Cập nhật thông tin người dùng trong phiên đang lưu, giữ nguyên token và nơi lưu (local/session). */
+export function updateStoredUser(user: AuthUser): void {
+  for (const storage of [localStorage, sessionStorage]) {
+    try {
+      const raw = storage.getItem(STORAGE_KEY)
+      if (!raw) continue
+      const parsed: unknown = JSON.parse(raw)
+      if (isSession(parsed)) {
+        storage.setItem(STORAGE_KEY, JSON.stringify({ ...parsed, user }))
+      }
+    } catch {
+      // không ghi được thì thôi: phiên trong bộ nhớ vẫn đã được cập nhật
+    }
+  }
+}
+
 export function clearSession(): void {
   removeSafely(localStorage)
   removeSafely(sessionStorage)

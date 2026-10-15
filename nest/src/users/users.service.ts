@@ -24,6 +24,8 @@ interface ProfileRow {
     // 1 nếu tài khoản có hồ sơ khách hàng (bảng customers)
     has_customer: number;
     address: string | null;
+    // 'YYYY-MM-DD' hoặc null
+    date_of_birth?: string | null;
 }
 
 interface PasswordRow {
@@ -41,6 +43,22 @@ const USER_COLUMNS = {
 
 // bcrypt chỉ dùng 72 byte đầu của mật khẩu
 const BCRYPT_MAX_BYTES = 72;
+
+/** Ngày sinh phải là ngày có thật, không ở tương lai và không trước năm 1900. */
+export function assertValidBirthDate(value: string, now: Date = new Date()): void {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    const [year, month, day] = match ? match.slice(1).map(Number) : [0, 0, 0];
+    const date = new Date(Date.UTC(year, month - 1, day));
+    const isRealDate =
+        Boolean(match) &&
+        date.getUTCFullYear() === year &&
+        date.getUTCMonth() === month - 1 &&
+        date.getUTCDate() === day;
+
+    if (!isRealDate || year < 1900 || date.getTime() > now.getTime()) {
+        throw new BadRequestException('Ngày sinh không hợp lệ');
+    }
+}
 
 /** "Nguyễn Minh Anh" → "MA" (chữ cái đầu của hai từ cuối, dùng làm avatar mặc định) */
 export function buildInitials(fullName: string): string {
@@ -94,6 +112,7 @@ export class UsersService {
             avatar_url: row.avatar_url,
             // null nếu chưa nhập hoặc tài khoản không phải khách hàng
             address: row.address,
+            date_of_birth: row.date_of_birth ?? null,
             roles: roles.map((role) => role.role_name),
             created_at: row.created_at,
         };
@@ -111,7 +130,8 @@ export class UsersService {
                 u.is_active,
                 u.created_at,
                 (c.user_id IS NOT NULL) AS has_customer,
-                c.address
+                c.address,
+                DATE_FORMAT(c.date_of_birth, '%Y-%m-%d') AS date_of_birth
             FROM users u
             LEFT JOIN customers c ON c.user_id = u.user_id
             WHERE u.user_id = ?
@@ -139,8 +159,14 @@ export class UsersService {
         }
 
         const addressProvided = dto.address !== undefined;
+        const dateOfBirthProvided = dto.dateOfBirth !== undefined;
+        const dateOfBirth = dto.dateOfBirth?.trim() ? dto.dateOfBirth.trim() : null;
 
-        if (userChanges.length === 0 && !addressProvided) {
+        if (dateOfBirth !== null) {
+            assertValidBirthDate(dateOfBirth);
+        }
+
+        if (userChanges.length === 0 && !addressProvided && !dateOfBirthProvided) {
             throw new BadRequestException(
                 'Không có thông tin nào để cập nhật',
             );
@@ -152,9 +178,9 @@ export class UsersService {
             throw new NotFoundException('Không tìm thấy tài khoản');
         }
 
-        if (addressProvided && !current.has_customer) {
+        if ((addressProvided || dateOfBirthProvided) && !current.has_customer) {
             throw new BadRequestException(
-                'Tài khoản này không có hồ sơ khách hàng để lưu địa chỉ',
+                'Tài khoản này không có hồ sơ khách hàng để lưu địa chỉ hoặc ngày sinh',
             );
         }
 
@@ -185,6 +211,13 @@ export class UsersService {
                     await connection.execute(
                         `UPDATE customers SET address = ? WHERE user_id = ?`,
                         [address, userId],
+                    );
+                }
+
+                if (dateOfBirthProvided) {
+                    await connection.execute(
+                        `UPDATE customers SET date_of_birth = ? WHERE user_id = ?`,
+                        [dateOfBirth, userId],
                     );
                 }
             });

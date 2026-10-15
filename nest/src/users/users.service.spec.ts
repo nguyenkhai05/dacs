@@ -7,7 +7,7 @@ import * as bcrypt from 'bcrypt';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DatabaseService } from '../database/database.service.js';
-import { buildInitials, UsersService } from './users.service.js';
+import { assertValidBirthDate, buildInitials, UsersService } from './users.service.js';
 
 const profileRow = {
   user_id: 9,
@@ -291,5 +291,46 @@ describe('UsersService.changePassword', () => {
     await expect(
       passwordService({ password_hash: hash, is_active: 0 }).service.changePassword(9, dto),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('ngày sinh (customers.date_of_birth)', () => {
+  it('assertValidBirthDate chỉ nhận ngày có thật, không ở tương lai, từ 1900', () => {
+    const now = new Date('2026-10-15T00:00:00Z');
+    expect(() => assertValidBirthDate('2002-08-12', now)).not.toThrow();
+    for (const bad of ['2002-02-30', '2002-13-01', '1899-12-31', '2027-01-01', 'abc', '2002-8-1']) {
+      expect(() => assertValidBirthDate(bad, now)).toThrow(BadRequestException);
+    }
+  });
+
+  it('getProfile trả date_of_birth (null khi chưa có)', async () => {
+    const withDob = createService({ profile: { ...profileRow, date_of_birth: '2002-08-12' } });
+    expect((await withDob.service.getProfile(9)).date_of_birth).toBe('2002-08-12');
+
+    const without = createService();
+    expect((await without.service.getProfile(9)).date_of_birth).toBeNull();
+  });
+
+  it('updateProfile lưu ngày sinh vào customers, chuỗi rỗng = xóa', async () => {
+    const { service, execute } = createService();
+
+    await service.updateProfile(9, { dateOfBirth: '2002-08-12' });
+    expect(execute.mock.calls[0]).toEqual([
+      'UPDATE customers SET date_of_birth = ? WHERE user_id = ?',
+      ['2002-08-12', 9],
+    ]);
+
+    execute.mockClear();
+    await service.updateProfile(9, { dateOfBirth: '' });
+    expect((execute.mock.calls[0][1] as unknown[])[0]).toBeNull();
+  });
+
+  it('từ chối ngày sinh sai và tài khoản không có hồ sơ khách hàng', async () => {
+    const { service, execute } = createService();
+    await expect(service.updateProfile(9, { dateOfBirth: '2999-01-01' })).rejects.toBeInstanceOf(BadRequestException);
+    expect(execute).not.toHaveBeenCalled();
+
+    const staff = createService({ profile: { ...profileRow, has_customer: 0 } });
+    await expect(staff.service.updateProfile(9, { dateOfBirth: '2002-08-12' })).rejects.toBeInstanceOf(BadRequestException);
   });
 });

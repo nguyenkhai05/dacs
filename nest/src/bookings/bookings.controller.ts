@@ -5,6 +5,7 @@ import {
     HttpCode,
     Param,
     ParseIntPipe,
+    Patch,
     Post,
     Query,
     UseGuards,
@@ -21,6 +22,7 @@ import {
     MyBookingsQueryDto,
 } from './dto/my-bookings-query.dto.js';
 import { QuoteBookingDto } from './dto/quote-booking.dto.js';
+import { RefundAccountDto } from './dto/refund-account.dto.js';
 import { MyBookingsService } from './my-bookings.service.js';
 
 @Controller('bookings')
@@ -103,5 +105,16 @@ export class BookingsController {
         @Body() dto: CancelBookingDto,
     ) {
         return this.myBookingsService.cancel(Number(user.sub), id, dto.reason);
+    }
+
+    // Màn 10: khách nhập/sửa tài khoản nhận hoàn cọc của đơn đã hủy
+    @Patch(':id/refund-account')
+    @UseGuards(JwtAuthGuard)
+    updateRefundAccount(
+        @CurrentUser() user: AuthUser,
+        @Param('id', ParseIntPipe) id: number,
+        @Body() dto: RefundAccountDto,
+    ) {
+        return this.myBookingsService.updateRefundAccount(Number(user.sub), id, dto);
     }
 }

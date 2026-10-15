@@ -72,6 +72,16 @@ describe('UpdateProfileDto', () => {
   });
 });
 
+describe('UpdateProfileDto.dateOfBirth', () => {
+  it('chấp nhận YYYY-MM-DD hoặc chuỗi rỗng, từ chối định dạng khác', async () => {
+    await expect(run(UpdateProfileDto, { dateOfBirth: '2002-08-12' })).resolves.toBeDefined();
+    await expect(run(UpdateProfileDto, { dateOfBirth: '' })).resolves.toBeDefined();
+    for (const bad of ['12/08/2002', '2002-8-1', 'hom-qua']) {
+      await expect(run(UpdateProfileDto, { dateOfBirth: bad })).rejects.toBeDefined();
+    }
+  });
+});
+
 describe('ChangePasswordDto', () => {
   const ok = {
     currentPassword: 'matkhaucu',

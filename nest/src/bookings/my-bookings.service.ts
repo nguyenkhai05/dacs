@@ -24,6 +24,7 @@ import {
 } from './booking-policy.js';
 import { restoreServiceStock } from './booking-stock.js';
 import type { BookingTab } from './dto/my-bookings-query.dto.js';
+import type { RefundAccountDto } from './dto/refund-account.dto.js';
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -830,6 +831,96 @@ export class MyBookingsService {
                     amount: refundTotal,
                     status: refundTotal > 0 ? 'Pending' : null,
                 },
+            };
+        });
+    }
+
+    // Màn 10: khách nhập/sửa tài khoản nhận hoàn cọc của đơn đã hủy.
+    // Khoản đã chuyển xong (Successful) thì không sửa được; khoản Failed được mở lại
+    // (về Pending) để nhân viên chuyển lại.
+    async updateRefundAccount(
+        customerId: number,
+        bookingId: number,
+        dto: RefundAccountDto,
+    ) {
+        return this.database.transaction(async (connection) => {
+            const [booking] = await this.exec<
+                { booking_id: number; customer_id: number; status: string }[]
+            >(
+                connection,
+                `SELECT booking_id, customer_id, status FROM bookings WHERE booking_id = ? FOR UPDATE`,
+                [bookingId],
+            );
+
+            // Đơn của người khác cũng trả 404 để không lộ đơn có tồn tại hay không
+            if (!booking || Number(booking.customer_id) !== customerId) {
+                throw new NotFoundException('Không tìm thấy đơn đặt sân');
+            }
+
+            const refunds = await this.exec<{ refund_id: number; status: string }[]>(
+                connection,
+                `
+                SELECT r.refund_id, r.status
+                FROM payment_refunds r
+                JOIN payments py ON py.payment_id = r.payment_id
+                JOIN invoices i ON i.invoice_id = py.invoice_id
+                WHERE i.booking_id = ?
+                ORDER BY r.refund_id ASC
+                FOR UPDATE
+                `,
+                [bookingId],
+            );
+
+            if (refunds.length === 0) {
+                throw new NotFoundException('Đơn này không có khoản hoàn cọc nào');
+            }
+
+            const editable = refunds.filter((refund) => refund.status !== 'Successful');
+
+            if (editable.length === 0) {
+                throw new ConflictException(
+                    'Khoản hoàn đã được chuyển, không thể sửa tài khoản nhận hoàn',
+                );
+            }
+
+            for (const refund of editable) {
+                const reopen = refund.status === 'Failed';
+
+                await connection.execute(
+                    `
+                    UPDATE payment_refunds
+                    SET bank_name = ?, bank_account_number = ?, bank_account_name = ?,
+                        status = 'Pending', failure_reason = NULL
+                    WHERE refund_id = ?
+                    `,
+                    [
+                        dto.bank_name,
+                        dto.bank_account_number,
+                        dto.bank_account_name,
+                        refund.refund_id,
+                    ],
+                );
+
+                await connection.execute(
+                    `
+                    INSERT INTO payment_refund_history (refund_id, old_status, new_status, note, changed_by)
+                    VALUES (?, ?, 'Pending', ?, ?)
+                    `,
+                    [
+                        refund.refund_id,
+                        refund.status,
+                        reopen
+                            ? 'Khách cập nhật tài khoản nhận hoàn, mở lại để chuyển lại'
+                            : 'Khách cập nhật tài khoản nhận hoàn',
+                        customerId,
+                    ],
+                );
+            }
+
+            return {
+                message: 'Đã lưu tài khoản nhận hoàn. Nhân viên sẽ chuyển khoản cho bạn.',
+                booking_id: bookingId,
+                updated_refunds: editable.length,
             };
         });
     }

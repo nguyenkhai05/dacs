@@ -7,7 +7,7 @@ import './SiteHeader.css'
 
 interface SiteHeaderProps {
   /** Mục menu đang được chọn */
-  active?: 'home' | 'pitches' | 'bookings'
+  active?: 'home' | 'pitches' | 'bookings' | 'account'
 }
 
 /** Thanh đầu trang dùng chung cho các màn của khách hàng. */
@@ -77,6 +77,9 @@ export function SiteHeader({ active }: SiteHeaderProps) {
               </button>
               {menuOpen && (
                 <div className="sh__menu" role="menu">
+                  <Link to="/account" role="menuitem" onClick={() => setMenuOpen(false)}>
+                    Tài khoản của tôi
+                  </Link>
                   <Link to="/bookings" role="menuitem" onClick={() => setMenuOpen(false)}>
                     Lịch đặt của tôi
                   </Link>

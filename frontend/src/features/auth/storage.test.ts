@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fakeJwt, sampleUser } from '../../test/helpers'
-import { clearSession, isTokenExpired, loadSession, saveSession } from './storage'
+import { clearSession, isTokenExpired, loadSession, saveSession, updateStoredUser } from './storage'
 
 describe('isTokenExpired', () => {
   it('false với token còn hạn, true với token đã hết hạn', () => {
@@ -65,6 +65,24 @@ describe('session storage', () => {
   it('bỏ qua dữ liệu sai cấu trúc', () => {
     localStorage.setItem('dsn_session', JSON.stringify({ token: 123 }))
 
+    expect(loadSession()).toBeNull()
+  })
+})
+
+describe('updateStoredUser', () => {
+  it('đổi thông tin người dùng nhưng giữ token và nơi lưu', () => {
+    const base = { token: fakeJwt(), user: sampleUser }
+    saveSession(base, false)
+
+    updateStoredUser({ ...sampleUser, full_name: 'Tên Mới' })
+
+    expect(loadSession()).toEqual({ token: base.token, user: { ...sampleUser, full_name: 'Tên Mới' } })
+    expect(sessionStorage.getItem('dsn_session')).not.toBeNull()
+    expect(localStorage.getItem('dsn_session')).toBeNull()
+  })
+
+  it('không có phiên thì không làm gì', () => {
+    updateStoredUser(sampleUser)
     expect(loadSession()).toBeNull()
   })
 })

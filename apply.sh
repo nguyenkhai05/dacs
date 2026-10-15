@@ -1,32 +1,74 @@
 #!/usr/bin/env bash
-# Chạy ở THƯ MỤC GỐC repo (cùng cấp với nest/ và frontend/):  bash apply.sh
-# 1) Chép các file MỚI của màn 10 vào đúng chỗ.  2) Áp dụng bản vá cho 4 file đã có.
-# Nếu bản vá không khớp (file đã bị sửa khác), script dừng và KHÔNG sửa gì file của bạn.
+# Thêm MyBookingsService.updateRefundAccount (sửa lỗi ts(2339) ở my-bookings.refund-account.spec.ts).
+#
+#   ./apply.sh [thư-mục-gốc-repo]            áp dụng (mặc định: thư mục hiện tại)
+#   ./apply.sh --check [thư-mục-gốc-repo]    chỉ kiểm tra xung đột, không sửa gì
+#   ./apply.sh --revert [thư-mục-gốc-repo]   gỡ lại các thay đổi này
+#
+# Dùng `git apply` nên "tất cả hoặc không gì": nếu có xung đột thì KHÔNG file nào bị sửa.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="$(pwd)"
+PATCH="$HERE/fix-refund-account.patch"
+MODE="apply"
+TARGET="."
 
-[ -d "$ROOT/nest/src" ] && [ -d "$ROOT/frontend/src" ] || {
-  echo "Hãy chạy script ở thư mục gốc repo (có nest/ và frontend/)."; exit 1; }
-
-echo "Kiểm tra bản vá..."
-if patch -R -p1 --dry-run -d "$ROOT" < "$HERE/changes.patch" >/dev/null 2>&1; then
-  echo "Bản vá đã được áp dụng trước đó. Không cần làm gì thêm."; exit 0
-fi
-patch -p1 --dry-run -d "$ROOT" < "$HERE/changes.patch" >/dev/null || {
-  echo "Bản vá không khớp với file hiện tại của bạn. Chưa sửa gì."
-  echo "Gửi lại cho mình các file: nest/src/bookings/my-bookings.service.ts, nest/src/bookings/bookings.controller.ts,"
-  echo "frontend/src/App.tsx, README.md"; exit 1; }
-
-echo "Chép file mới..."
-(cd "$HERE" && find nest frontend -type f) | while read -r f; do
-  mkdir -p "$ROOT/$(dirname "$f")"
-  cp "$HERE/$f" "$ROOT/$f"
+for arg in "$@"; do
+  case "$arg" in
+    --check)  MODE="check" ;;
+    --revert) MODE="revert" ;;
+    -h|--help) sed -n '2,9p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    *) TARGET="$arg" ;;
+  esac
 done
 
-echo "Áp dụng bản vá..."
-patch -p1 -d "$ROOT" < "$HERE/changes.patch"
+die() { echo "✗ $*" >&2; exit 1; }
 
-echo
-echo "Xong. Kiểm tra:  (cd nest && npx tsc --noEmit)  và  (cd frontend && npm run build)"
+command -v git >/dev/null 2>&1 || die "Cần cài git."
+[[ -f "$PATCH" ]] || die "Không thấy $PATCH (hãy giữ apply.sh và fix-refund-account.patch cùng thư mục)."
+cd "$TARGET"
+[[ -f nest/src/bookings/my-bookings.service.ts ]] \
+  || die "Hãy chạy ở thư mục gốc repo (nơi có thư mục nest/), hoặc truyền đường dẫn: ./apply.sh /đường/dẫn/repo"
+
+# Patch có đường dẫn dạng a/before/... → b/after/... nên bỏ 2 cấp (-p2). Bỏ qua khác biệt khoảng trắng/CRLF.
+GIT_APPLY=(git apply -p2 --ignore-whitespace --whitespace=nowarn)
+FILES="$(grep "^diff --git" "$PATCH" | sed -E "s#^diff --git a/(before|after)/(.*) b/after/.*#\2#")"
+
+if [[ "$MODE" == "revert" ]]; then
+  if "${GIT_APPLY[@]}" --reverse --check "$PATCH" 2>/tmp/fix-refund-account.err; then
+    "${GIT_APPLY[@]}" --reverse "$PATCH"
+    echo "✓ Đã gỡ bản vá."
+  else
+    cat /tmp/fix-refund-account.err >&2
+    die "Không gỡ được (có thể code đã bị sửa tiếp hoặc chưa từng áp dụng)."
+  fi
+  exit 0
+fi
+
+# Đã áp dụng rồi?
+if "${GIT_APPLY[@]}" --reverse --check "$PATCH" >/dev/null 2>&1; then
+  echo "✓ Bản vá đã được áp dụng trước đó, không cần làm gì thêm."
+  exit 0
+fi
+
+if ! "${GIT_APPLY[@]}" --check "$PATCH" 2>/tmp/fix-refund-account.err; then
+  cat /tmp/fix-refund-account.err >&2
+  echo >&2
+  die "Có xung đột — chưa sửa file nào. Xem các dòng lỗi ở trên (file + dòng) rồi sửa tay hoặc gửi cho mình."
+fi
+
+if [[ "$MODE" == "check" ]]; then
+  echo "✓ Không có xung đột. Sẽ thay đổi các file sau:"
+  echo "$FILES" | sed 's/^/   /'
+  exit 0
+fi
+
+"${GIT_APPLY[@]}" "$PATCH"
+echo "✓ Đã áp dụng bản vá. Các file đã thay đổi hoặc thêm mới:"
+echo "$FILES" | sed 's/^/   /'
+cat <<'MSG'
+
+Tiếp theo:
+  cd nest && npm test
+Gỡ lại nếu cần:  bash apply.sh --revert
+MSG
