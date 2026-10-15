@@ -99,9 +99,9 @@ Thư mục `db/migrations/` chỉ cần khi nâng cấp một database CŨ; cài
 - ✅ 13 (tổng quan & báo cáo)
 - ✅ 15 (sân & bảng giá: khung giờ + thứ trong tuần + ngày lễ). **Cần chạy `db/migrations/006_price_day_types.sql`** (thêm `price_slots.day_type`, bảng `holidays`, cập nhật trigger chống chồng giờ)
 - ✅ 18 (người dùng: khách hàng + nhân viên & vai trò). **Cần chạy `db/migrations/009_user_admin.sql`** (bảng `user_admin_history`)
-- ✅ 14, 16, 17, 19 (phân hệ quản trị): backend đã có (`/admin/bookings`, `/admin/services`, `/admin/payments`, `/admin/system-log`); **frontend quản trị 14-19 chưa làm**
+- ✅ 14, 16, 17, 19 (phân hệ quản trị): backend đã có (`/admin/bookings`, `/admin/services`, `/admin/payments`, `/admin/system-log`); **frontend quản trị còn 16, 17, 19**
 - Frontend khách hàng: ✅ 01-08 (08 = `/payment/:bookingId`), ✅ 12 (`/pitches/:id/reviews`, nút "Xem đánh giá" ở trang chi tiết sân; chọn sẵn booking bằng `?booking=<id>`), ⏳ 09-11
-- Frontend quản trị: ✅ 13 (`/admin`, khung chung `components/AdminLayout.tsx`: các màn sau chỉ cần điền `to` cho mục menu trong `ADMIN_NAV` và bọc trang bằng `<AdminLayout>`), ⏳ 14-19
+- Frontend quản trị: ✅ 13 (`/admin`, khung chung `components/AdminLayout.tsx`: các màn sau chỉ cần điền `to` cho mục menu trong `ADMIN_NAV` và bọc trang bằng `<AdminLayout>`), ✅ 14, 15 (`/admin/bookings`, `/admin/pitches`), ✅ 18 (`/admin/users`, chỉ Admin), ⏳ 16, 17, 19
 
 ## Quy tắc chọn bảng giá theo ngày (migration 006)
 Mỗi khung giá có `day_type`: `All` (mọi ngày - toàn bộ khung giá cũ được giữ ở loại này), `Weekday` (T2-T6), `Weekend` (T7-CN), `Holiday` (ngày có trong bảng `holidays`).
