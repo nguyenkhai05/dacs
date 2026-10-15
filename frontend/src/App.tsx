@@ -17,6 +17,7 @@ import { ADMIN_ROLES } from './features/auth/authApi'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminBookingsPage from './pages/AdminBookingsPage'
 import AdminPitchesPage from './pages/AdminPitchesPage'
+import BookingDetailPage from './pages/BookingDetailPage'
 
 // Bảng định tuyến: địa chỉ trên thanh URL → trang nào được vẽ
 export default function App() {
@@ -35,6 +36,7 @@ export default function App() {
       <Route path="/bookings/:bookingId" element={<RequireAuth><ComingSoonPage title="Chi tiết đặt sân" backTo="/bookings" backLabel="← Quay lại lịch đặt của tôi" /></RequireAuth>} />
       <Route path="/account" element={<RequireAuth><AccountPage /></RequireAuth>} />
       <Route path="/payment/:bookingId" element={<RequireAuth><PaymentPage /></RequireAuth>} />
+      <Route path="/bookings/:bookingId" element={<RequireAuth><BookingDetailPage /></RequireAuth>} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
