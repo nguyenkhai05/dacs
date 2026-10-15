@@ -13,9 +13,20 @@
 .sh__button:hover{background:#105c37}
 .sh__button--outline{background:#fff;color:#176b42}
 .sh__button--outline:hover{background:#f1f8f3}
+/* Menu tài khoản (avatar + tên + mũi tên) */
+.sh__account{position:relative}
+.sh__user{display:inline-flex;align-items:center;gap:8px;border:0;background:transparent;padding:4px 6px;border-radius:999px;cursor:pointer;color:#1f3a2c}
+.sh__user:hover{background:#f1f6f2}
+.sh__avatar{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#e3f2e8;color:#157647;font-size:11px;font-weight:800}
+.sh__name{font-size:12px;font-weight:700;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sh__chevron{font-size:14px;line-height:1;color:#157647;transform:translateY(-2px)}
+.sh__menu{position:absolute;right:0;top:calc(100% + 8px);min-width:180px;background:#fff;border:1px solid #e1e8e3;border-radius:10px;box-shadow:0 12px 28px #12402b1f;padding:6px;display:flex;flex-direction:column;z-index:30}
+.sh__menu a,.sh__menu button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:9px 12px;border-radius:7px;font-size:12px;font-weight:650;color:#2c4a3a;cursor:pointer}
+.sh__menu a:hover,.sh__menu button:hover{background:#f1f8f3;color:#157647}
 @media (max-width:760px){
   .sh__inner{width:calc(100% - 28px);min-height:62px;gap:12px}
   .sh__nav{display:none}
   .sh__actions{margin-left:auto;gap:10px}
   .sh__greeting{display:none}
+  .sh__name,.sh__chevron{display:none}
 }

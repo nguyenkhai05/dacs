@@ -16,7 +16,10 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { BookingsService } from './bookings.service.js';
 import { CancelBookingDto } from './dto/cancel-booking.dto.js';
 import { CreateBookingDto } from './dto/create-booking.dto.js';
-import { MyBookingsQueryDto } from './dto/my-bookings-query.dto.js';
+import {
+    MyActivityQueryDto,
+    MyBookingsQueryDto,
+} from './dto/my-bookings-query.dto.js';
 import { QuoteBookingDto } from './dto/quote-booking.dto.js';
 import { MyBookingsService } from './my-bookings.service.js';
 
@@ -61,6 +64,19 @@ export class BookingsController {
         @Query() query: MyBookingsQueryDto,
     ) {
         return this.myBookingsService.listMine(Number(user.sub), query);
+    }
+
+    // Màn 09: hoạt động gần đây (route cố định phải đứng trước :id)
+    @Get('my/activity')
+    @UseGuards(JwtAuthGuard)
+    listActivity(
+        @CurrentUser() user: AuthUser,
+        @Query() query: MyActivityQueryDto,
+    ) {
+        return this.myBookingsService.listActivity(
+            Number(user.sub),
+            query.limit,
+        );
     }
 
     // Màn 10: chi tiết một đơn

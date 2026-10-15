@@ -1,0 +1,6 @@
+.sf{background:#fff;border-top:1px solid #e5ece6;color:#87948b;font-size:11px}
+.sf__inner{width:min(1200px,calc(100% - 48px));margin:0 auto;padding:22px 0;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.sf__links{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sf__links a{color:#5d6f63;text-decoration:none}
+.sf__links a:hover{color:#16804b}
+@media (max-width:720px){.sf__inner{width:calc(100% - 28px)}}

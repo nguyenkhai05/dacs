@@ -9,7 +9,10 @@ import type { PoolConnection } from 'mysql2/promise';
 
 import { getVietnamNow } from '../common/time.util.js';
 import { DatabaseService } from '../database/database.service.js';
-import { buildTransferContent } from '../payments/payments.utils.js';
+import {
+    buildTransferContent,
+    calculateDeposit,
+} from '../payments/payments.utils.js';
 import {
     calculateRefund,
     hoursUntilStart,
@@ -127,6 +130,14 @@ export class MyBookingsService {
         } catch (error) {
             throw new InternalServerErrorException((error as Error).message);
         }
+    }
+
+    // % tiền cọc (cùng cấu hình DEPOSIT_PERCENT với phần thanh toán, mặc định 30)
+    private get depositPercent(): number {
+        const percent = Number(this.config.get<string>('DEPOSIT_PERCENT'));
+        return Number.isFinite(percent) && percent > 0 && percent <= 100
+            ? percent
+            : 30;
     }
 
     private get refundPolicy(): RefundPolicy {
@@ -331,12 +342,88 @@ export class MyBookingsService {
             status: row.status,
             total_amount: total,
             deposit_paid: paid,
+            // Tiền cọc cần có theo cấu hình (để hiện "đã cọc / cần cọc" ở đơn chờ cọc)
+            deposit_required: calculateDeposit(total, this.depositPercent),
             refund_amount: Number(row.refund_amount),
             // Đơn chờ cọc còn hạn → frontend hiện nút "Tiếp tục thanh toán"
             hold_seconds_left: isPending ? Number(row.hold_seconds_left) : 0,
             can_cancel:
                 row.status === 'Pending' ||
                 (row.status === 'Confirmed' && hours > 0),
+        };
+    }
+
+    // ---------------------------------------------------------------
+    // Màn 09: Hoạt động gần đây (cọc, đổi trạng thái đơn, hoàn cọc)
+    // ---------------------------------------------------------------
+
+    async listActivity(customerId: number, limit = 5) {
+        const size = Math.min(Math.max(1, Math.floor(limit)), 20);
+
+        const rows = await this.database.query<
+            {
+                happened_at: Date | string;
+                type: string;
+                booking_id: number;
+                amount: string | number | null;
+                note: string | null;
+            }[]
+        >(
+            `
+            SELECT happened_at, type, booking_id, amount, note
+            FROM (
+                SELECT py.paid_at AS happened_at,
+                       'deposit_paid' AS type,
+                       b.booking_id AS booking_id,
+                       py.amount AS amount,
+                       NULL AS note
+                FROM payments py
+                JOIN invoices i ON i.invoice_id = py.invoice_id
+                JOIN bookings b ON b.booking_id = i.booking_id
+                WHERE b.customer_id = ?
+                  AND py.status = 'Successful'
+                  AND py.paid_at IS NOT NULL
+
+                UNION ALL
+
+                SELECT h.changed_at,
+                       CONCAT('status_', h.new_status),
+                       h.booking_id,
+                       NULL,
+                       h.reason
+                FROM booking_status_history h
+                JOIN bookings b ON b.booking_id = h.booking_id
+                WHERE b.customer_id = ?
+                  AND h.new_status IN ('Confirmed', 'Completed', 'Cancelled', 'NoShow')
+
+                UNION ALL
+
+                SELECT COALESCE(r.processed_at, r.created_at),
+                       CONCAT('refund_', r.status),
+                       i.booking_id,
+                       r.amount,
+                       NULL
+                FROM payment_refunds r
+                JOIN payments py ON py.payment_id = r.payment_id
+                JOIN invoices i ON i.invoice_id = py.invoice_id
+                JOIN bookings b ON b.booking_id = i.booking_id
+                WHERE b.customer_id = ?
+            ) activity
+            ORDER BY happened_at DESC, booking_id DESC
+            LIMIT ${size}
+            `,
+            [customerId, customerId, customerId],
+        );
+
+        return {
+            activities: rows.map((row) => ({
+                at: row.happened_at,
+                type: row.type,
+                booking_id: row.booking_id,
+                booking_code: buildTransferContent(row.booking_id),
+                amount: row.amount === null ? null : Number(row.amount),
+                note: row.note,
+            })),
         };
     }
 

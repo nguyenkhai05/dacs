@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-label="Sân 5 - Số 1">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1f8a4c"/><stop offset="1" stop-color="#0f5c33"/></linearGradient></defs>
+  <rect width="1200" height="800" fill="url(#g)"/>
+  <g fill="none" stroke="#ffffff" stroke-opacity=".75" stroke-width="6">
+    <rect x="140" y="130" width="920" height="540" rx="8"/>
+    <line x1="600" y1="130" x2="600" y2="670"/>
+    <circle cx="600" cy="400" r="86"/>
+    <rect x="140" y="290" width="150" height="220"/>
+    <rect x="910" y="290" width="150" height="220"/>
+  </g>
+  <text x="600" y="745" text-anchor="middle" font-family="Arial, sans-serif" font-size="40" fill="#ffffff" fill-opacity=".92" font-weight="700">Sân 5 - Số 1</text>
+  <text x="600" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" fill="#ffffff" fill-opacity=".8">Ảnh minh họa</text>
+</svg>

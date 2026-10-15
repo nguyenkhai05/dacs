@@ -65,6 +65,15 @@ describe('BookingsController', () => {
     expect(listMine).toHaveBeenCalledWith(12, { tab: 'upcoming', page: 2 });
   });
 
+  it('listActivity chỉ lấy hoạt động của người đang đăng nhập', () => {
+    const listActivity = vi.fn().mockReturnValue('x');
+    const controller = createController({}, { listActivity });
+
+    controller.listActivity(user, { limit: 5 });
+
+    expect(listActivity).toHaveBeenCalledWith(12, 5);
+  });
+
   it('getDetail truyền id người dùng và vai trò', () => {
     const getDetail = vi.fn().mockReturnValue('x');
     const controller = createController({}, { getDetail });

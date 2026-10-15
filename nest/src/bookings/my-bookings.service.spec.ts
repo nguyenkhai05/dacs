@@ -288,6 +288,20 @@ describe('MyBookingsService.listMine', () => {
     expect(result.summary.next_booking).toBeNull();
   });
 
+  it('tính số tiền cọc cần có theo DEPOSIT_PERCENT (mặc định 30%)', async () => {
+    const { service } = listService(
+      [row({ status: 'Pending', total_pitch_price: '300000.00', services_total: '0', paid_amount: '0' })],
+      { all_count: 1, upcoming_count: 1, completed_count: 0, cancelled_count: 0 },
+      { paid: 0, refunded: 0 },
+      [],
+    );
+
+    const result = await service.listMine(9);
+
+    expect(result.bookings[0].deposit_required).toBe(90000);
+    expect(result.bookings[0].deposit_paid).toBe(0);
+  });
+
   it('lọc theo tab và luôn ràng buộc customer_id của người đăng nhập', async () => {
     const { service, query } = listService([], {}, {}, []);
 
@@ -392,5 +406,33 @@ describe('MyBookingsService.getDetail', () => {
     expect(result.amounts.remaining).toBe(0);
     expect(result.cancellation.can_cancel).toBe(false);
     expect(result.cancellation.refund_amount).toBe(0);
+  });
+});
+
+describe('MyBookingsService.listActivity', () => {
+  it('chỉ lấy hoạt động của khách đang đăng nhập và đổi kiểu dữ liệu', async () => {
+    const query = vi.fn().mockResolvedValueOnce([
+      { happened_at: '2026-10-05T08:03:00.000Z', type: 'deposit_paid', booking_id: 107, amount: '222000.00', note: null },
+      { happened_at: '2026-10-04T13:05:00.000Z', type: 'status_Completed', booking_id: 4, amount: null, note: null },
+    ]);
+    const service = new MyBookingsService({ query } as unknown as DatabaseService, config);
+
+    const result = await service.listActivity(9, 5);
+
+    const [sql, params] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain('LIMIT 5');
+    expect(params).toEqual([9, 9, 9]);
+    expect(result.activities).toHaveLength(2);
+    expect(result.activities[0]).toMatchObject({ booking_code: 'DS107', amount: 222000, type: 'deposit_paid' });
+    expect(result.activities[1].amount).toBeNull();
+  });
+
+  it('giới hạn số dòng trong khoảng 1-20', async () => {
+    const query = vi.fn().mockResolvedValue([]);
+    const service = new MyBookingsService({ query } as unknown as DatabaseService, config);
+
+    await service.listActivity(9, 999);
+
+    expect((query.mock.calls[0] as [string])[0]).toContain('LIMIT 20');
   });
 });

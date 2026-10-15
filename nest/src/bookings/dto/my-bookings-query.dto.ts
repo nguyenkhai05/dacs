@@ -30,3 +30,13 @@ export class MyBookingsQueryDto {
     @Max(50)
     limit?: number;
 }
+
+// Màn 09: số dòng "Hoạt động gần đây"
+export class MyActivityQueryDto {
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    @Max(20)
+    limit?: number;
+}
