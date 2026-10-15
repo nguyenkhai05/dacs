@@ -1,0 +1,476 @@
+/* Màn 12 - Đánh giá sân. Tiền tố rv- để không đụng CSS của các trang khác. */
+
+.rv-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.rv-main {
+  flex: 1;
+  width: min(1200px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: var(--space-6) 0 64px;
+}
+
+.rv-intro h1 {
+  font-size: 2rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--color-hero);
+}
+
+.rv-intro p {
+  margin-top: var(--space-2);
+  max-width: 62ch;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.rv-layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+  margin-top: var(--space-5);
+}
+
+.rv-side,
+.rv-content {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* Khung nội dung dùng chung */
+.rv-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.rv-card__title {
+  font-size: 1.05rem;
+  color: var(--color-hero);
+  margin-bottom: var(--space-4);
+}
+
+/* Tổng quan điểm */
+.rv-summary__score {
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--color-primary);
+}
+
+.rv-summary__score small {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.rv-summary__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 var(--space-4);
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.rv-summary__empty {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.rv-stars {
+  letter-spacing: 2px;
+  color: #d8dfda;
+}
+
+.rv-stars .is-on {
+  color: var(--rv-star, #b7791f);
+}
+
+.rv-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.rv-bars li {
+  display: grid;
+  grid-template-columns: 32px 1fr 28px;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+.rv-bars__track {
+  height: 7px;
+  border-radius: 99px;
+  background: #e7eee9;
+  overflow: hidden;
+}
+
+.rv-bars__track > span {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--color-primary);
+}
+
+.rv-bars__count {
+  text-align: right;
+}
+
+.rv-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.rv-hint {
+  background: var(--color-success-bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  font-size: 0.8rem;
+  color: var(--color-primary-dark);
+}
+
+.rv-hint p {
+  margin-top: var(--space-1);
+  line-height: 1.5;
+}
+
+/* Form */
+.rv-field {
+  position: relative;
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.rv-field label,
+.rv-field__label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.rv-field select,
+.rv-field textarea {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+.rv-field textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.rv-field select:focus,
+.rv-field textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(26, 127, 75, 0.16);
+}
+
+.rv-counter {
+  justify-self: end;
+  font-size: 0.72rem;
+  color: var(--color-muted);
+}
+
+.rv-star-input {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.rv-star-input button {
+  border: 0;
+  background: transparent;
+  padding: 2px;
+  font-size: 2rem;
+  line-height: 1;
+  color: #d8dfda;
+  cursor: pointer;
+}
+
+.rv-star-input button.is-on {
+  color: var(--rv-star, #b7791f);
+}
+
+.rv-star-input button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.rv-chip {
+  justify-self: start;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: var(--color-success-bg);
+  color: var(--color-primary-dark);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.rv-note {
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--color-muted);
+  margin-bottom: var(--space-4);
+}
+
+.rv-note--small {
+  margin: var(--space-3) 0 0;
+  font-size: 0.75rem;
+}
+
+.rv-flash {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  margin-bottom: var(--space-4);
+}
+
+.rv-flash .alert {
+  width: 100%;
+}
+
+.rv-button,
+.rv-fail a.rv-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #fff;
+  padding: 10px 18px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.rv-button:hover {
+  background: var(--color-primary-dark);
+}
+
+.rv-link-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--color-primary);
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Danh sách đánh giá */
+.rv-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+  transition: opacity 0.15s;
+}
+
+.rv-list.is-busy {
+  opacity: 0.55;
+}
+
+.rv-review {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.rv-badge {
+  align-self: start;
+  justify-self: start;
+  padding: 3px 9px;
+  border-radius: 99px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.rv-badge--good {
+  background: var(--color-success-bg);
+  color: var(--color-primary-dark);
+}
+
+.rv-badge--mid {
+  background: #fff4dc;
+  color: #8a5a07;
+}
+
+.rv-badge--low {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.rv-review__name {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.rv-review__date {
+  font-size: 0.74rem;
+  color: var(--color-muted);
+}
+
+.rv-review__comment {
+  margin-top: var(--space-1);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.rv-empty {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.rv-list__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.rv-pager {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.rv-pager button {
+  min-width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: 99px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.rv-pager button.is-current {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.rv-pager button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Lỗi / đang tải */
+.rv-banner {
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-size: 0.85rem;
+}
+
+.rv-fail {
+  max-width: 520px;
+  margin: var(--space-6) auto;
+  text-align: center;
+}
+
+.rv-fail h1 {
+  font-size: 1.3rem;
+  color: var(--color-hero);
+}
+
+.rv-fail p {
+  margin: var(--space-2) 0 var(--space-4);
+  color: var(--color-muted);
+}
+
+.rv-fail__actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.rv-skeleton {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.rv-skeleton span {
+  display: block;
+  height: 120px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(90deg, #e8eee9, #f5f8f5, #e8eee9);
+  background-size: 200% 100%;
+  animation: rv-shimmer 1.5s infinite;
+}
+
+@keyframes rv-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rv-skeleton span {
+    animation: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .rv-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .rv-main {
+    width: calc(100% - 28px);
+    padding-top: var(--space-5);
+  }
+
+  .rv-intro h1 {
+    font-size: 1.6rem;
+  }
+
+  .rv-card {
+    padding: var(--space-4);
+  }
+
+  .rv-list__foot {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

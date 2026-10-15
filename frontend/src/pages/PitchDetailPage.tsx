@@ -163,7 +163,7 @@ export default function PitchDetailPage() {
 
         <section className="pd-title-row">
           <div><span className="pd-eyebrow">THÔNG TIN SÂN</span><h1>{pitch.pitch_name}</h1><div className="pd-subtitle"><span className="pd-location-icon">⌖</span>{card?.district || 'Địa điểm chi tiết đang cập nhật'} <span className="pd-dot">·</span>{card?.category_name || pitch.category_name || 'Sân thể thao'} <span className="pd-dot">·</span><span className={`pd-status ${pitch.status === 'Available' ? 'is-open' : 'is-closed'}`}>{statusLabel}</span></div></div>
-          <Link className="pd-outline-button" to={`/pitches?date=${encodeURIComponent(date)}`}>← Quay lại danh sách</Link>
+          <div className="pd-title-actions"><Link className="pd-outline-button" to={`/pitches/${pitch.pitch_id}/reviews`}>Xem đánh giá</Link><Link className="pd-outline-button" to={`/pitches?date=${encodeURIComponent(date)}`}>← Quay lại danh sách</Link></div>
         </section>
 
         <section className="pd-gallery" aria-label="Hình ảnh sân">

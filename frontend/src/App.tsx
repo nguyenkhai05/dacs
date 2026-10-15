@@ -10,6 +10,7 @@ import PaymentPage from './pages/PaymentPage'
 import MyBookingsPage from './pages/MyBookingsPage'
 import ComingSoonPage from './pages/ComingSoonPage'
 import AccountPage from './pages/AccountPage'
+import ReviewsPage from './pages/ReviewsPage'
 import { RequireAuth } from './features/auth/RequireAuth'
 import { RequireRole } from './features/auth/RequireRole'
 import { ADMIN_ROLES } from './features/auth/authApi'
@@ -22,6 +23,7 @@ export default function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/pitches" element={<PitchListPage />} />
       <Route path="/pitches/:id" element={<PitchDetailPage />} />
+      <Route path="/pitches/:id/reviews" element={<ReviewsPage />} />
       <Route path="/booking" element={<RequireAuth><BookingPage /></RequireAuth>} />
       <Route path="/admin" element={<RequireRole roles={ADMIN_ROLES}><AdminHomePage /></RequireRole>} />
       <Route path="/bookings" element={<RequireAuth><MyBookingsPage /></RequireAuth>} />
