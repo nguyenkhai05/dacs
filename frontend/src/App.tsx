@@ -16,6 +16,7 @@ import { RequireRole } from './features/auth/RequireRole'
 import { ADMIN_ROLES } from './features/auth/authApi'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminBookingsPage from './pages/AdminBookingsPage'
+import AdminPitchesPage from './pages/AdminPitchesPage'
 
 // Bảng định tuyến: địa chỉ trên thanh URL → trang nào được vẽ
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
       <Route path="/pitches/:id/reviews" element={<ReviewsPage />} />
       <Route path="/booking" element={<RequireAuth><BookingPage /></RequireAuth>} />
       <Route path="/admin" element={<RequireRole roles={ADMIN_ROLES}><AdminDashboardPage /></RequireRole>} />
+      <Route path="/admin/pitches" element={<RequireRole roles={ADMIN_ROLES}><AdminPitchesPage /></RequireRole>} />
       <Route path="/admin/bookings" element={<RequireRole roles={ADMIN_ROLES}><AdminBookingsPage /></RequireRole>} />
       <Route path="/bookings" element={<RequireAuth><MyBookingsPage /></RequireAuth>} />
       {/* Màn 10 (chi tiết booking) chưa làm: trang tạm để nút "Xem chi tiết" không bị hỏng */}

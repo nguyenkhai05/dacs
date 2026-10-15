@@ -18,7 +18,7 @@ interface NavItem {
 export const ADMIN_NAV: NavItem[] = [
   { id: 'dashboard', label: 'Tổng quan & báo cáo', to: '/admin', icon: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z' },
   { id: 'bookings', label: 'Đơn đặt & lịch sân', to: '/admin/bookings', icon: 'M5 5h14v15H5zM5 10h14M9 3v4M15 3v4' },
-  { id: 'pitches', label: 'Sân & bảng giá', icon: 'M3 6h18v12H3zM12 6v12M9 12a3 3 0 1 0 6 0 3 3 0 1 0-6 0' },
+  { id: 'pitches', label: 'Sân & bảng giá', to: '/admin/pitches', icon: 'M3 6h18v12H3zM12 6v12M9 12a3 3 0 1 0 6 0 3 3 0 1 0-6 0' },
   { id: 'services', label: 'Dịch vụ', icon: 'M12 3l8 4v10l-8 4-8-4V7zM12 12l8-5M12 12v9M12 12L4 7' },
   { id: 'payments', label: 'Thanh toán & hoàn cọc', icon: 'M3 6h18v12H3zM3 10h18M7 15h4' },
   { id: 'users', label: 'Người dùng', adminOnly: true, icon: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M17 11a2.5 2.5 0 1 0 0-5M18 15c2 .5 3 2 3 5' },
