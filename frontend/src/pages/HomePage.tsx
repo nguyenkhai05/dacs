@@ -97,11 +97,12 @@ export default function HomePage() {
             <a href="#tim-san">Tìm sân</a>
             <a href="#san-noi-bat">Sân nổi bật</a>
             <a href="#loi-ich">Về chúng tôi</a>
+            {user && <Link to="/bookings">Lịch đặt của tôi</Link>}
           </nav>
           <div className="home-header__actions">
             {user ? (
               <>
-                <span className="home-user">Xin chào, {user.full_name}</span>
+                <Link className="home-user" to="/account" title="Tài khoản của tôi">Xin chào, {user.full_name}</Link>
                 <button className="home-button home-button--outline" onClick={() => { signOut(); navigate('/login') }}>Đăng xuất</button>
               </>
             ) : (
