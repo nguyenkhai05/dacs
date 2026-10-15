@@ -1,0 +1,96 @@
+/* Màn 13 - Tổng quan & báo cáo */
+.dsh { max-width: 1180px; margin: 0 auto; display: grid; gap: var(--space-4); }
+
+.dsh-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.dsh-head h1 { font-size: 28px; line-height: 1.25; letter-spacing: -0.5px; color: var(--color-hero); }
+.dsh-head__actions { display: flex; align-items: flex-end; gap: var(--space-3); }
+
+.dsh-muted { color: var(--color-muted); font-size: 13px; margin: 0; }
+.dsh-small { font-size: 12px; }
+.dsh-empty { color: var(--color-muted); font-size: 13px; padding: var(--space-4) 0; margin: 0; text-align: center; }
+
+.dsh-date { display: grid; gap: var(--space-1); font-size: 11px; font-weight: 700; color: var(--color-muted); }
+.dsh-date input { border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); padding: 8px 10px; font-size: 13px; }
+
+.dsh-btn {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dsh-btn:hover:not(:disabled) { background: var(--color-success-bg); }
+.dsh-btn:disabled { opacity: 0.6; cursor: wait; }
+
+.dsh-link { border: 0; background: none; padding: 0; color: var(--color-primary); font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: none; }
+.dsh-link:hover { text-decoration: underline; }
+
+.dsh-tabs { display: inline-flex; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-md); background: #e9efeb; width: fit-content; }
+.dsh-tabs button { border: 0; border-radius: 8px; background: transparent; color: var(--color-muted); padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.dsh-tabs button.is-active { background: var(--color-surface); color: var(--color-primary-dark); box-shadow: 0 1px 4px rgba(18, 64, 43, 0.12); }
+
+.dsh-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-5); min-width: 0; }
+.dsh-card h2 { font-size: 16px; color: var(--color-hero); margin-bottom: var(--space-2); }
+
+.dsh-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); margin-bottom: var(--space-4); }
+.dsh-kpi { display: grid; gap: var(--space-2); padding: var(--space-4) var(--space-5); }
+.dsh-kpi h2 { font-size: 12px; font-weight: 600; color: var(--color-muted); margin: 0; }
+.dsh-kpi strong { font-size: 30px; line-height: 1.2; color: var(--color-primary); }
+.dsh-kpi small { font-size: 11px; color: var(--color-muted); min-height: 1.4em; }
+
+.dsh-note { background: var(--color-success-bg); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-4); font-size: 12px; color: var(--color-primary-dark); }
+.dsh-note p { margin: var(--space-1) 0 0; color: var(--color-muted); }
+
+.dsh-split { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+
+/* Biểu đồ cột doanh thu thuần */
+.dsh-bars { list-style: none; margin: var(--space-4) 0 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-3); align-items: end; }
+.dsh-bars li { display: grid; gap: var(--space-2); justify-items: center; }
+.dsh-bars__value { font-size: 11px; font-weight: 700; color: var(--color-hero); white-space: nowrap; }
+.dsh-bars__track { display: flex; align-items: flex-end; width: 100%; height: 180px; }
+.dsh-bars__bar { display: block; width: 100%; border-radius: 6px 6px 0 0; background: #b9dfc8; }
+.dsh-bars li.is-selected .dsh-bars__bar { background: var(--color-primary); }
+.dsh-bars__label { font-size: 11px; color: var(--color-muted); }
+
+/* Bảng */
+.dsh-table-wrap { overflow-x: auto; }
+.dsh-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dsh-table th, .dsh-table td { padding: 11px var(--space-3); text-align: left; border-bottom: 1px solid #edf1ee; }
+.dsh-table thead th { font-size: 11px; font-weight: 700; color: var(--color-muted); background: #f3f7f4; }
+.dsh-table tbody th, .dsh-table tfoot th { font-weight: 700; color: var(--color-text); }
+.dsh-table tfoot th, .dsh-table tfoot td { font-weight: 800; border-bottom: 0; background: #f8faf8; }
+.dsh-table--compact th small { display: block; font-weight: 600; color: var(--color-muted); font-size: 11px; }
+
+.dsh-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.dsh-badge--ok { background: var(--color-success-bg); color: var(--color-primary-dark); }
+.dsh-badge--warn { background: #fff1dc; color: #a15c07; }
+.dsh-badge--danger { background: var(--color-danger-bg); color: var(--color-danger); }
+.dsh-badge--muted { background: #eceff0; color: var(--color-muted); }
+
+/* Tab báo cáo */
+.dsh-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); margin: var(--space-4) 0; }
+.dsh-filters label { display: grid; gap: var(--space-1); font-size: 12px; font-weight: 700; color: var(--color-text); }
+.dsh-filters select, .dsh-filters input { border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); padding: 10px 12px; font-size: 13px; }
+.dsh-filters small { font-weight: 500; color: var(--color-muted); }
+
+.dsh-report__grid { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); gap: var(--space-5); align-items: start; margin-top: var(--space-4); }
+.dsh-report__grid.is-loading { opacity: 0.6; transition: opacity 0.15s; }
+.dsh-peak { background: var(--color-success-bg); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); font-size: 12px; color: var(--color-primary-dark); }
+.dsh-peak p { margin: var(--space-1) 0 0; color: var(--color-muted); }
+.dsh-insights { display: grid; gap: var(--space-3); }
+.dsh-rate { margin: 0; font-size: 13px; }
+.dsh-report__foot { margin-top: var(--space-4); }
+
+@media (max-width: 1100px) {
+  .dsh-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dsh-split, .dsh-report__grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .dsh-head h1 { font-size: 22px; }
+  .dsh-kpis, .dsh-filters { grid-template-columns: 1fr; }
+  .dsh-bars { gap: var(--space-1); }
+  .dsh-bars__value { font-size: 9px; }
+}

@@ -67,6 +67,9 @@ Thư mục `db/migrations/` chỉ cần khi nâng cấp một database CŨ; cài
 | 12 | `GET /reviews/booking/:bookingId` (đơn đã đánh giá chưa / có đánh giá được không) | Chủ đơn |
 | 12 | `PUT /reviews/:id` (sửa đánh giá của mình) | Chủ đánh giá |
 | 13 | `GET /dashboard/overview?date&view=day\|week` (KPI, biểu đồ, đơn mới nhất, lượt sắp diễn ra) | Admin, Staff |
+| 13 | `GET /dashboard/revenue?date` (doanh thu thuần 7 ngày = thu − hoàn theo ngày giao dịch, kèm tách thu / hoàn từng ngày) | Admin, Staff |
+| 13 | `GET /dashboard/report?period=day\|week\|month&date&group_by=pitch\|category` (bảng giờ đã đặt + doanh thu thuần, giờ cao điểm, tỷ lệ hủy / không đến) | Admin, Staff |
+| 13 | `GET /dashboard/report/export?...` (CSV, cùng tham số với `report`) | Admin, Staff |
 | 15 | `GET /admin/pitches?status&category_id&q` (danh sách sân + tổng quan trạng thái + khoảng giá + số lượt sắp tới) | Admin, Staff |
 | 15 | `GET /admin/pitches/:id` (chi tiết, bảng giá, khoảng trống giá, lịch sử sửa) | Admin, Staff |
 | 15 | `POST /admin/pitches`, `PATCH /admin/pitches/:id` | Admin |
@@ -96,8 +99,9 @@ Thư mục `db/migrations/` chỉ cần khi nâng cấp một database CŨ; cài
 - ✅ 13 (tổng quan & báo cáo)
 - ✅ 15 (sân & bảng giá: khung giờ + thứ trong tuần + ngày lễ). **Cần chạy `db/migrations/006_price_day_types.sql`** (thêm `price_slots.day_type`, bảng `holidays`, cập nhật trigger chống chồng giờ)
 - ✅ 18 (người dùng: khách hàng + nhân viên & vai trò). **Cần chạy `db/migrations/009_user_admin.sql`** (bảng `user_admin_history`)
-- ✅ 14, 16, 17, 19 (phân hệ quản trị): backend đã có (`/admin/bookings`, `/admin/services`, `/admin/payments`, `/admin/system-log`); **frontend quản trị (13-19) chưa làm**
+- ✅ 14, 16, 17, 19 (phân hệ quản trị): backend đã có (`/admin/bookings`, `/admin/services`, `/admin/payments`, `/admin/system-log`); **frontend quản trị 14-19 chưa làm**
 - Frontend khách hàng: ✅ 01-08 (08 = `/payment/:bookingId`), ✅ 12 (`/pitches/:id/reviews`, nút "Xem đánh giá" ở trang chi tiết sân; chọn sẵn booking bằng `?booking=<id>`), ⏳ 09-11
+- Frontend quản trị: ✅ 13 (`/admin`, khung chung `components/AdminLayout.tsx`: các màn sau chỉ cần điền `to` cho mục menu trong `ADMIN_NAV` và bọc trang bằng `<AdminLayout>`), ⏳ 14-19
 
 ## Quy tắc chọn bảng giá theo ngày (migration 006)
 Mỗi khung giá có `day_type`: `All` (mọi ngày - toàn bộ khung giá cũ được giữ ở loại này), `Weekday` (T2-T6), `Weekend` (T7-CN), `Holiday` (ngày có trong bảng `holidays`).
@@ -148,3 +152,8 @@ Các mốc giờ và % chỉnh trong `.env` (`REFUND_*`). Yêu cầu hoàn đư�
 - **Nhân viên**: luôn giữ vai trò `Staff`; "Cấp Admin" thêm vai trò `Admin`, "Thu hồi" gỡ `Admin` (vẫn là `Staff`). **Không thu hồi được Admin hoạt động cuối cùng** (khóa dòng chống thao tác đồng thời).
 - Tạo nhân viên: mật khẩu ngẫu nhiên không ai biết, email hướng dẫn nhân viên tự đặt mật khẩu qua "Quên mật khẩu". Chưa cấu hình SMTP thì `email_sent = false` (dùng `resend-invite` sau). Nếu không gửi `phone_number`, cột SĐT tạm dùng mã nhân viên (do `users.phone_number` là NOT NULL UNIQUE).
 - Lịch sử khóa/mở khóa/đổi vai trò/sửa ghi chú lưu ở `user_admin_history` (màn 19 có thể đọc lại).
+
+## Tổng quan & báo cáo (màn 13)
+- Doanh thu thuần = thanh toán thành công − hoàn tiền thành công, tính theo **ngày giao dịch** (giờ VN), không theo ngày đá. `/dashboard/revenue` và thẻ KPI cùng định nghĩa này.
+- Giờ cao điểm = khung 2 giờ liên tiếp có nhiều giờ sân được đặt nhất; mức lấp đầy của khung = giờ đã đặt ÷ (số sân đang hoạt động × 2 giờ × số ngày trong kỳ). Đây là ước lượng theo số sân, khác với KPI "tỷ lệ lấp đầy" của tổng quan (tính theo khung giá có hiệu lực).
+- Tỷ lệ hủy / không đến: mẫu số là mọi booking có ngày đá trong kỳ, gồm mọi trạng thái.

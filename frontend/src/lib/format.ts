@@ -57,3 +57,32 @@ export function isValidDateString(value: string | null | undefined): value is st
     date.getUTCDate() === day
   )
 }
+
+/** "Thứ Hai, 05/10/2026" từ chuỗi ngày YYYY-MM-DD. */
+export function formatWeekdayDate(value: string): string {
+  if (!isValidDateString(value)) return ''
+  const [year, month, day] = value.split('-').map(Number)
+  const weekday = new Intl.DateTimeFormat('vi-VN', { weekday: 'long' }).format(new Date(year, month - 1, day))
+  return `${weekday}, ${formatShortDate(value)}`
+}
+
+/** Giờ:phút theo giờ Việt Nam, vd "15:10". */
+export function formatVnTime(date: Date): string {
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: VN_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(date)
+}
+
+/** "05/10/2026 · 15:10 · UTC+7" - dùng ở thanh trên của khu quản trị. */
+export function formatVnDateTime(date: Date): string {
+  const day = new Intl.DateTimeFormat('en-CA', {
+    timeZone: VN_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+  return `${formatShortDate(day)} · ${formatVnTime(date)} · UTC+7`
+}

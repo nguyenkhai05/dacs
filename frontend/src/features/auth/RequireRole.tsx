@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './useAuth'
+import './RequireRole.css'
 
 interface RequireRoleProps {
   /** Chỉ cần có MỘT trong các vai trò này là được vào */
