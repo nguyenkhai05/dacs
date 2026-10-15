@@ -33,7 +33,8 @@ describe('AdminLayout', () => {
   it('màn đã có route là liên kết, màn chưa làm hiện mờ "Sắp có"', () => {
     setup(['Admin'])
     expect(screen.getByRole('link', { name: 'Tổng quan & báo cáo' })).toHaveAttribute('href', '/admin')
-    expect(screen.queryByRole('link', { name: 'Dịch vụ' })).not.toBeInTheDocument()
-    expect(screen.getByText('Dịch vụ').closest('[aria-disabled="true"]')).not.toBeNull()
+    expect(screen.getByRole('link', { name: 'Dịch vụ' })).toHaveAttribute('href', '/admin/services')
+    expect(screen.queryByRole('link', { name: 'Nhật ký hệ thống' })).not.toBeInTheDocument()
+    expect(screen.getByText('Nhật ký hệ thống').closest('[aria-disabled="true"]')).not.toBeNull()
   })
 })

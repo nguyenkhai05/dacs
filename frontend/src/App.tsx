@@ -17,6 +17,7 @@ import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminBookingsPage from './pages/AdminBookingsPage'
 import AdminPitchesPage from './pages/AdminPitchesPage'
 import AdminPaymentsPage from './pages/AdminPaymentsPage'
+import AdminServicesPage from './pages/AdminServicesPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import BookingDetailPage from './pages/BookingDetailPage'
 
@@ -33,6 +34,8 @@ export default function App() {
       <Route path="/admin/pitches" element={<RequireRole roles={ADMIN_ROLES}><AdminPitchesPage /></RequireRole>} />
       {/* Màn 18: chỉ Admin (nhân viên không quản lý người dùng và vai trò) */}
       <Route path="/admin/users" element={<RequireRole roles={['Admin']}><AdminUsersPage /></RequireRole>} />
+      {/* Màn 16: Admin thêm/sửa, nhân viên chỉ xem */}
+      <Route path="/admin/services" element={<RequireRole roles={ADMIN_ROLES}><AdminServicesPage /></RequireRole>} />
       <Route path="/admin/payments" element={<RequireRole roles={ADMIN_ROLES}><AdminPaymentsPage /></RequireRole>} />
       <Route path="/admin/bookings" element={<RequireRole roles={ADMIN_ROLES}><AdminBookingsPage /></RequireRole>} />
       <Route path="/bookings" element={<RequireAuth><MyBookingsPage /></RequireAuth>} />
