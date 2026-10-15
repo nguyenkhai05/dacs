@@ -1,0 +1,122 @@
+/* Màn 17: Thanh toán & hoàn cọc (tiền tố pay-) */
+.pay{display:flex;flex-direction:column;gap:20px}
+.pay h1{margin:0;font-size:28px;color:#173b2b;letter-spacing:-.4px}
+.pay h2{margin:0;font-size:16px;color:#173b2b}
+.pay-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.pay-sub{margin:4px 0 0;color:var(--color-muted);font-size:13px}
+
+/* Thẻ chung */
+.pay-card{background:#fff;border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+
+/* 3 thẻ số liệu */
+.pay-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.pay-kpi{background:#fff;border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:16px 20px;display:flex;flex-direction:column;gap:6px}
+.pay-kpi h2{font-size:12px;font-weight:700;color:var(--color-muted)}
+.pay-kpi__value{margin:0;font-size:28px;font-weight:800;color:#173b2b;letter-spacing:-.4px;line-height:1.15}
+.pay-kpi__value--red{color:var(--color-danger)}
+.pay-kpi__value--green{color:var(--color-primary)}
+.pay-kpi small{color:var(--color-muted);font-size:11px;min-height:14px}
+@media (max-width:860px){.pay-kpis{grid-template-columns:1fr}}
+
+/* Ô nhập */
+.pay-filters{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:12px}
+@media (max-width:760px){.pay-filters{grid-template-columns:1fr}}
+.pay-field{display:flex;flex-direction:column;gap:5px;font-size:12px}
+.pay-field>span{font-weight:700;color:#33443a}
+.pay-field input,.pay-field select{border:1px solid var(--color-border);border-radius:8px;padding:10px 12px;font:inherit;font-size:13px;background:#fff;color:inherit;min-width:0;box-sizing:border-box;width:100%}
+.pay-field input:focus,.pay-field select:focus{outline:2px solid #9fd3b6;border-color:var(--color-primary)}
+.pay-field input:disabled{background:#f3f5f4;color:#6b7a72}
+.pay-field input[aria-invalid="true"]{border-color:var(--color-danger)}
+.pay-err{color:var(--color-danger);font-size:11px}
+
+/* Bảng */
+.pay-scroll{overflow-x:auto;border:1px solid #e3eae5;border-radius:10px}
+.pay-scroll.is-loading{opacity:.55;transition:opacity .15s}
+.pay-table{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
+.pay-table th{background:#f3f7f4;color:#506257;text-align:left;font-size:11px;font-weight:700;padding:11px 14px;white-space:nowrap}
+.pay-table td{padding:12px 14px;border-top:1px solid #e8eee9;color:#2b4637;vertical-align:middle}
+.pay-table tbody tr:nth-child(even){background:#fafcfa}
+.pay-table tr.is-selected td{background:#f1f9f4}
+.pay-table td b,.pay-table td small{display:block}
+.pay-table td small{color:var(--color-muted);font-size:11px;margin-top:2px}
+.pay-table .is-right{text-align:right}
+.pay-amount{font-weight:800;white-space:nowrap;color:#173b2b}
+.pay-amount.is-out{color:var(--color-danger)}
+.pay-form-row td{background:#f6faf7 !important}
+
+/* Nhãn trạng thái */
+.pay-badge{display:inline-block;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;white-space:nowrap}
+.pay-badge--success{background:#e2f4e8;color:#157647}
+.pay-badge--warning{background:#fdf0d5;color:#9a5b00}
+.pay-badge--danger{background:#fdecea;color:#b3261e}
+.pay-badge--info{background:#e3eefb;color:#1f5aa6}
+.pay-badge--muted{background:#eef1ef;color:#5d6b63}
+
+/* Phân trang + ghi chú */
+.pay-pager{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;color:var(--color-muted);flex-wrap:wrap}
+.pay-pager__buttons{display:flex;gap:6px}
+.pay-pager__buttons button{width:30px;height:30px;border:0;border-radius:50%;background:#eef2ef;color:#4d6957;font-size:14px;cursor:pointer}
+.pay-pager__buttons button:disabled{opacity:.5;cursor:not-allowed}
+.pay-pager__buttons button.is-current{background:#e2f4e8;color:#157647;font-weight:800;opacity:1;cursor:default}
+.pay-totals{margin:0;font-size:12px;color:#33443a}
+.pay-note{margin:0;font-size:12px;color:var(--color-muted);line-height:1.6}
+.pay-empty{margin:0;text-align:center;color:var(--color-muted);padding:22px 8px;font-size:13px}
+.pay-error{display:flex;align-items:center;gap:12px}
+.pay-error .alert{flex:1}
+
+/* Nút */
+.pay-btn{border:1px solid #cfe0d4;background:#fff;color:#176b42;border-radius:var(--radius-md);padding:0 16px;min-height:40px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.pay-btn:hover:not(:disabled){background:#f1f9f4}
+.pay-btn:disabled{opacity:.5;cursor:not-allowed}
+.pay-btn--primary{background:var(--color-primary);border-color:var(--color-primary);color:#fff}
+.pay-btn--primary:hover:not(:disabled){background:var(--color-primary-dark)}
+.pay-btn--danger{background:#fff;border-color:#e7b5b0;color:var(--color-danger)}
+.pay-btn--danger:hover:not(:disabled){background:var(--color-danger-bg)}
+.pay-link{align-self:flex-start;border:0;background:none;padding:0;color:#176b42;font:inherit;font-size:12px;font-weight:700;cursor:pointer;text-decoration:underline}
+.pay-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pay-row-actions{display:flex;flex-wrap:wrap;gap:6px}
+.pay-row-actions button{border:1px solid #cfe0d4;background:#fff;color:#176b42;border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.pay-row-actions button:hover:not(:disabled),.pay-row-actions button[aria-pressed="true"]{background:#e8f4ec}
+.pay-row-actions button:disabled{opacity:.5;cursor:not-allowed}
+.pay-row-actions span{color:var(--color-muted)}
+
+/* Form nhúng trong thẻ */
+.pay-inline-form{display:flex;flex-direction:column;gap:12px}
+.pay-hint{margin:0;font-size:12px;color:#33443a;line-height:1.55}
+
+/* Thông báo đầu trang */
+.pay-notice{display:flex;justify-content:space-between;gap:12px;padding:10px 14px;border-radius:10px;font-size:13px}
+.pay-notice--success{background:var(--color-success-bg);color:#126037}
+.pay-notice--error{background:var(--color-danger-bg);color:var(--color-danger)}
+.pay-notice button{border:0;background:none;font-size:18px;cursor:pointer;color:inherit;line-height:1}
+
+/* Khung dưới: hoàn cọc + hóa đơn */
+.pay-bottom{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:980px){.pay-bottom{grid-template-columns:1fr}}
+.pay-side{display:flex;flex-direction:column;gap:20px;min-width:0}
+.pay-chips{display:flex;flex-wrap:wrap;gap:6px}
+.pay-chips button{border:1px solid var(--color-border);background:#fff;border-radius:999px;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;color:#33443a;cursor:pointer}
+.pay-chips button.is-active{background:#e8f4ec;border-color:#a9d6bb;color:#157647}
+.pay-chips-row{display:flex;gap:8px;flex-wrap:wrap}
+.pay-customer{margin:0;font-size:14px;color:#173b2b}
+.pay-meta{margin:0;font-size:12px;color:var(--color-muted);line-height:1.7}
+.pay-big{margin:0;font-size:34px;font-weight:800;letter-spacing:-.6px;color:#173b2b}
+.pay-mini{width:100%;border-collapse:collapse;font-size:12px;border:1px solid #e3eae5;border-radius:10px;overflow:hidden}
+.pay-mini th,.pay-mini td{padding:9px 12px;text-align:left;border-top:1px solid #e8eee9}
+.pay-mini thead th{background:#f3f7f4;color:#506257;font-size:11px;border-top:0}
+.pay-mini tbody th{font-weight:700;color:#33443a;white-space:nowrap}
+.pay-mini td{color:#2b4637}
+.pay-mini tr.is-current td,.pay-mini tr.is-current th{background:#eef7f1}
+.pay-pill{display:inline-block;border-radius:6px;padding:3px 8px;background:#eef1ef;color:#33443a;font-size:11px;font-weight:700}
+.pay-mini tr.is-current .pay-pill{background:#d6eddf;color:#157647}
+.pay-ok-box,.pay-warn-box{margin:0;border-radius:10px;padding:12px 14px;font-size:12px;line-height:1.65}
+.pay-ok-box{background:#e6f4ec;color:#126037}
+.pay-warn-box{background:#fff4d6;color:#7a5200}
+.pay-history summary{cursor:pointer;font-size:12px;font-weight:700;color:#176b42}
+.pay-history ul{margin:8px 0 0;padding-left:18px;font-size:12px;color:#33443a;line-height:1.7}
+
+@media (max-width:720px){
+  .pay-head{flex-direction:column}
+  .pay h1{font-size:24px}
+  .pay-big{font-size:28px}
+}

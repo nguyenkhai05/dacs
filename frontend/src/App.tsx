@@ -8,7 +8,6 @@ import PitchDetailPage from './pages/PitchDetailPage'
 import BookingPage from './pages/BookingPage'
 import PaymentPage from './pages/PaymentPage'
 import MyBookingsPage from './pages/MyBookingsPage'
-import ComingSoonPage from './pages/ComingSoonPage'
 import AccountPage from './pages/AccountPage'
 import ReviewsPage from './pages/ReviewsPage'
 import { RequireAuth } from './features/auth/RequireAuth'
@@ -17,6 +16,7 @@ import { ADMIN_ROLES } from './features/auth/authApi'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminBookingsPage from './pages/AdminBookingsPage'
 import AdminPitchesPage from './pages/AdminPitchesPage'
+import AdminPaymentsPage from './pages/AdminPaymentsPage'
 import BookingDetailPage from './pages/BookingDetailPage'
 
 // Bảng định tuyến: địa chỉ trên thanh URL → trang nào được vẽ
@@ -30,10 +30,9 @@ export default function App() {
       <Route path="/booking" element={<RequireAuth><BookingPage /></RequireAuth>} />
       <Route path="/admin" element={<RequireRole roles={ADMIN_ROLES}><AdminDashboardPage /></RequireRole>} />
       <Route path="/admin/pitches" element={<RequireRole roles={ADMIN_ROLES}><AdminPitchesPage /></RequireRole>} />
+      <Route path="/admin/payments" element={<RequireRole roles={ADMIN_ROLES}><AdminPaymentsPage /></RequireRole>} />
       <Route path="/admin/bookings" element={<RequireRole roles={ADMIN_ROLES}><AdminBookingsPage /></RequireRole>} />
       <Route path="/bookings" element={<RequireAuth><MyBookingsPage /></RequireAuth>} />
-      {/* Màn 10 (chi tiết booking) chưa làm: trang tạm để nút "Xem chi tiết" không bị hỏng */}
-      <Route path="/bookings/:bookingId" element={<RequireAuth><ComingSoonPage title="Chi tiết đặt sân" backTo="/bookings" backLabel="← Quay lại lịch đặt của tôi" /></RequireAuth>} />
       <Route path="/account" element={<RequireAuth><AccountPage /></RequireAuth>} />
       <Route path="/payment/:bookingId" element={<RequireAuth><PaymentPage /></RequireAuth>} />
       <Route path="/bookings/:bookingId" element={<RequireAuth><BookingDetailPage /></RequireAuth>} />
