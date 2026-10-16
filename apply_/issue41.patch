@@ -1,0 +1,865 @@
+diff --git a/before/frontend/src/App.tsx b/after/frontend/src/App.tsx
+index 7ea535f..2623c69 100644
+--- a/before/frontend/src/App.tsx
++++ b/after/frontend/src/App.tsx
+@@ -19,6 +19,7 @@ import AdminPitchesPage from './pages/AdminPitchesPage'
+ import AdminPaymentsPage from './pages/AdminPaymentsPage'
+ import AdminServicesPage from './pages/AdminServicesPage'
+ import AdminUsersPage from './pages/AdminUsersPage'
++import AdminSystemLogsPage from './pages/AdminSystemLogsPage'
+ import BookingDetailPage from './pages/BookingDetailPage'
+ 
+ // Bảng định tuyến: địa chỉ trên thanh URL → trang nào được vẽ
+@@ -37,6 +38,8 @@ export default function App() {
+       {/* Màn 16: Admin thêm/sửa, nhân viên chỉ xem */}
+       <Route path="/admin/services" element={<RequireRole roles={ADMIN_ROLES}><AdminServicesPage /></RequireRole>} />
+       <Route path="/admin/payments" element={<RequireRole roles={ADMIN_ROLES}><AdminPaymentsPage /></RequireRole>} />
++      {/* Màn 19: Nhật ký hệ thống (chỉ đọc), Admin và nhân viên đều xem được */}
++      <Route path="/admin/logs" element={<RequireRole roles={ADMIN_ROLES}><AdminSystemLogsPage /></RequireRole>} />
+       <Route path="/admin/bookings" element={<RequireRole roles={ADMIN_ROLES}><AdminBookingsPage /></RequireRole>} />
+       <Route path="/bookings" element={<RequireAuth><MyBookingsPage /></RequireAuth>} />
+       <Route path="/account" element={<RequireAuth><AccountPage /></RequireAuth>} />
+diff --git a/before/frontend/src/components/AdminLayout.test.tsx b/after/frontend/src/components/AdminLayout.test.tsx
+index eacb587..17301d6 100644
+--- a/before/frontend/src/components/AdminLayout.test.tsx
++++ b/after/frontend/src/components/AdminLayout.test.tsx
+@@ -30,11 +30,16 @@ describe('AdminLayout', () => {
+     expect(screen.getByText('Vai trò: Nhân viên')).toBeInTheDocument()
+   })
+ 
+-  it('màn đã có route là liên kết, màn chưa làm hiện mờ "Sắp có"', () => {
++  it('mọi màn đã có route đều là liên kết (kể cả Nhật ký hệ thống)', () => {
+     setup(['Admin'])
+     expect(screen.getByRole('link', { name: 'Tổng quan & báo cáo' })).toHaveAttribute('href', '/admin')
+     expect(screen.getByRole('link', { name: 'Dịch vụ' })).toHaveAttribute('href', '/admin/services')
+-    expect(screen.queryByRole('link', { name: 'Nhật ký hệ thống' })).not.toBeInTheDocument()
+-    expect(screen.getByText('Nhật ký hệ thống').closest('[aria-disabled="true"]')).not.toBeNull()
++    expect(screen.getByRole('link', { name: 'Nhật ký hệ thống' })).toHaveAttribute('href', '/admin/logs')
++    expect(screen.queryByTitle('Sắp có')).not.toBeInTheDocument()
++  })
++
++  it('nhân viên vẫn thấy menu Nhật ký hệ thống', () => {
++    setup(['Staff'])
++    expect(screen.getByRole('link', { name: 'Nhật ký hệ thống' })).toBeInTheDocument()
+   })
+ })
+diff --git a/before/frontend/src/components/AdminLayout.tsx b/after/frontend/src/components/AdminLayout.tsx
+index ba3ebac..d1ef671 100644
+--- a/before/frontend/src/components/AdminLayout.tsx
++++ b/after/frontend/src/components/AdminLayout.tsx
+@@ -22,7 +22,7 @@ export const ADMIN_NAV: NavItem[] = [
+   { id: 'services', label: 'Dịch vụ', to: '/admin/services', icon: 'M12 3l8 4v10l-8 4-8-4V7zM12 12l8-5M12 12v9M12 12L4 7' },
+   { id: 'payments', label: 'Thanh toán & hoàn cọc', to: '/admin/payments', icon: 'M3 6h18v12H3zM3 10h18M7 15h4' },
+   { id: 'users', label: 'Người dùng', to: '/admin/users', adminOnly: true, icon: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M17 11a2.5 2.5 0 1 0 0-5M18 15c2 .5 3 2 3 5' },
+-  { id: 'logs', label: 'Nhật ký hệ thống', icon: 'M12 7v5l3 2M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4' },
++  { id: 'logs', label: 'Nhật ký hệ thống', to: '/admin/logs', icon: 'M12 7v5l3 2M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4' },
+ ]
+ 
+ /** Đường dẫn của một màn quản trị (undefined nếu màn đó chưa làm). */
+diff --git a/after/frontend/src/features/systemLog/systemLogApi.ts b/after/frontend/src/features/systemLog/systemLogApi.ts
+new file mode 100644
+index 0000000..b49aa94
+--- /dev/null
++++ b/after/frontend/src/features/systemLog/systemLogApi.ts
+@@ -0,0 +1,69 @@
++import { apiFetch } from '../../lib/api'
++
++// Kiểu dữ liệu + hàm gọi API cho màn 19 "Nhật ký hệ thống" (chỉ đọc).
++// Khớp với nest/src/system-log (đường dẫn /admin/system-logs).
++
++export type ChangeType = 'booking' | 'pitch' | 'price'
++
++export interface SystemLogActor {
++  /** null = thao tác do hệ thống tự thực hiện */
++  user_id: number | null
++  display_name: string
++}
++
++export interface SystemLogItem {
++  id: string
++  /** ISO 8601 (UTC); hiển thị theo giờ Việt Nam */
++  changed_at: string
++  actor: SystemLogActor
++  change_type: ChangeType
++  /** Dòng chính: mã đơn / tên sân / khung giá */
++  target: string
++  /** Dòng phụ: mô tả thao tác, vd "Tạo booking" */
++  action: string
++  old_value: string
++  new_value: string
++}
++
++export interface SystemLogPage {
++  items: SystemLogItem[]
++  total: number
++  page: number
++  limit: number
++  total_pages: number
++}
++
++export interface SystemLogActorOption {
++  user_id: number
++  display_name: string
++}
++
++export interface SystemLogParams {
++  /** user_id; '' = tất cả */
++  actorId?: string
++  changeType?: ChangeType | ''
++  /** YYYY-MM-DD, '' = không giới hạn */
++  from?: string
++  to?: string
++  page?: number
++  limit?: number
++}
++
++const BASE = '/admin/system-logs'
++
++export function systemLogQuery(params: SystemLogParams): string {
++  const query = new URLSearchParams()
++  if (params.actorId) query.set('actor_id', params.actorId)
++  if (params.changeType) query.set('change_type', params.changeType)
++  if (params.from) query.set('from', params.from)
++  if (params.to) query.set('to', params.to)
++  if (params.page) query.set('page', String(params.page))
++  if (params.limit) query.set('limit', String(params.limit))
++  return query.toString()
++}
++
++export const fetchSystemLogs = (params: SystemLogParams, token: string | null, signal?: AbortSignal) =>
++  apiFetch<SystemLogPage>(`${BASE}?${systemLogQuery(params)}`, { token, signal })
++
++export const fetchLogActors = (token: string | null, signal?: AbortSignal) =>
++  apiFetch<SystemLogActorOption[]>(`${BASE}/actors`, { token, signal })
+diff --git a/after/frontend/src/features/systemLog/systemLogView.test.ts b/after/frontend/src/features/systemLog/systemLogView.test.ts
+new file mode 100644
+index 0000000..5201938
+--- /dev/null
++++ b/after/frontend/src/features/systemLog/systemLogView.test.ts
+@@ -0,0 +1,86 @@
++import { describe, expect, it } from 'vitest'
++import { systemLogQuery } from './systemLogApi'
++import {
++  defaultRange,
++  formatLogTime,
++  formatLogTimeFull,
++  pageWindow,
++  toneOfValue,
++  validateRange,
++} from './systemLogView'
++
++describe('formatLogTime', () => {
++  it('đổi ISO (UTC) sang giờ Việt Nam', () => {
++    expect(formatLogTime('2026-10-05T08:05:00.000Z')).toBe('05/10 · 15:05')
++    expect(formatLogTimeFull('2026-10-05T08:05:00.000Z')).toBe('05/10/2026 15:05 (UTC+7)')
++  })
++
++  it('qua nửa đêm UTC thì sang ngày hôm sau ở Việt Nam', () => {
++    expect(formatLogTime('2026-10-04T18:30:00.000Z')).toBe('05/10 · 01:30')
++  })
++
++  it('dữ liệu hỏng → "—"', () => {
++    expect(formatLogTime('khong-phai-ngay')).toBe('—')
++    expect(formatLogTimeFull('')).toBe('')
++  })
++})
++
++describe('khoảng ngày', () => {
++  it('mặc định từ đầu tháng đến hôm nay', () => {
++    expect(defaultRange('2026-10-05')).toEqual({ from: '2026-10-01', to: '2026-10-05' })
++  })
++
++  it('báo lỗi khi từ > đến, cho phép để trống một đầu', () => {
++    expect(validateRange('2026-10-06', '2026-10-05')).toBe('Ngày bắt đầu không được sau ngày kết thúc.')
++    expect(validateRange('2026-10-05', '2026-10-05')).toBe('')
++    expect(validateRange('', '2026-10-05')).toBe('')
++    expect(validateRange('2026-10-05', '')).toBe('')
++  })
++})
++
++describe('toneOfValue', () => {
++  it('trạng thái booking và sân hiện nhãn màu', () => {
++    expect(toneOfValue('booking', 'Đã xác nhận')).toBe('success')
++    expect(toneOfValue('booking', 'Đã hủy')).toBe('danger')
++    expect(toneOfValue('pitch', 'Bảo trì')).toBe('warning')
++  })
++
++  it('tiền, ghi chú, dòng giá không hiện nhãn', () => {
++    expect(toneOfValue('booking', 'Cọc: 0 ₫')).toBeNull()
++    expect(toneOfValue('price', 'Hoạt động')).toBeNull()
++    expect(toneOfValue('pitch', '—')).toBeNull()
++  })
++})
++
++describe('pageWindow', () => {
++  it('ít trang thì hiện hết', () => {
++    expect(pageWindow(1, 3)).toEqual([1, 2, 3])
++    expect(pageWindow(1, 0)).toEqual([])
++  })
++
++  it('nhiều trang thì chỉ hiện 5 số quanh trang hiện tại', () => {
++    expect(pageWindow(1, 20)).toEqual([1, 2, 3, 4, 5])
++    expect(pageWindow(10, 20)).toEqual([8, 9, 10, 11, 12])
++    expect(pageWindow(20, 20)).toEqual([16, 17, 18, 19, 20])
++  })
++})
++
++describe('systemLogQuery', () => {
++  it('bỏ qua tham số rỗng', () => {
++    expect(systemLogQuery({ actorId: '', changeType: '', from: '', to: '', page: 1, limit: 10 })).toBe('page=1&limit=10')
++  })
++
++  it('đủ tham số theo tên backend', () => {
++    const query = new URLSearchParams(
++      systemLogQuery({ actorId: '7', changeType: 'price', from: '2026-10-01', to: '2026-10-05', page: 2, limit: 10 }),
++    )
++    expect(Object.fromEntries(query)).toEqual({
++      actor_id: '7',
++      change_type: 'price',
++      from: '2026-10-01',
++      to: '2026-10-05',
++      page: '2',
++      limit: '10',
++    })
++  })
++})
+diff --git a/after/frontend/src/features/systemLog/systemLogView.ts b/after/frontend/src/features/systemLog/systemLogView.ts
+new file mode 100644
+index 0000000..38ac29c
+--- /dev/null
++++ b/after/frontend/src/features/systemLog/systemLogView.ts
+@@ -0,0 +1,81 @@
++import type { ChangeType } from './systemLogApi'
++
++// Hàm thuần cho màn "Nhật ký hệ thống" (dễ test, không phụ thuộc React).
++
++const VN_TIME_ZONE = 'Asia/Ho_Chi_Minh'
++
++export const CHANGE_TYPE_OPTIONS: { value: ChangeType; label: string }[] = [
++  { value: 'booking', label: 'Booking' },
++  { value: 'pitch', label: 'Sân' },
++  { value: 'price', label: 'Giá' },
++]
++
++/** Phần ngày giờ theo giờ Việt Nam; undefined nếu chuỗi không phải thời gian hợp lệ. */
++function vnParts(iso: string) {
++  const date = new Date(iso)
++  if (Number.isNaN(date.getTime())) return undefined
++  const parts = new Intl.DateTimeFormat('en-GB', {
++    timeZone: VN_TIME_ZONE,
++    year: 'numeric',
++    month: '2-digit',
++    day: '2-digit',
++    hour: '2-digit',
++    minute: '2-digit',
++    hourCycle: 'h23',
++  }).formatToParts(date)
++  const pick = (type: string) => parts.find((part) => part.type === type)?.value ?? ''
++  return { day: pick('day'), month: pick('month'), year: pick('year'), hour: pick('hour'), minute: pick('minute') }
++}
++
++/** "2026-10-05T08:05:00.000Z" → "05/10 · 15:05" (giờ Việt Nam). Dữ liệu hỏng → "—". */
++export function formatLogTime(iso: string): string {
++  const p = vnParts(iso)
++  return p ? `${p.day}/${p.month} · ${p.hour}:${p.minute}` : '—'
++}
++
++/** Dạng đầy đủ để hiện khi rê chuột: "05/10/2026 15:05 (UTC+7)". */
++export function formatLogTimeFull(iso: string): string {
++  const p = vnParts(iso)
++  return p ? `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute} (UTC+7)` : ''
++}
++
++/** Khoảng ngày mặc định: từ đầu tháng đến hôm nay (today dạng YYYY-MM-DD). */
++export function defaultRange(today: string): { from: string; to: string } {
++  return { from: `${today.slice(0, 8)}01`, to: today }
++}
++
++/** Thông báo lỗi nếu khoảng ngày sai (từ > đến); không có lỗi → ''. */
++export function validateRange(from: string, to: string): string {
++  return from && to && from > to ? 'Ngày bắt đầu không được sau ngày kết thúc.' : ''
++}
++
++export type ValueTone = 'success' | 'warning' | 'danger' | 'info' | 'muted'
++
++const STATUS_TONES: Record<string, ValueTone> = {
++  // Trạng thái booking
++  'Chờ cọc': 'warning',
++  'Đã xác nhận': 'success',
++  'Đã check-in': 'info',
++  'Đang đá': 'info',
++  'Hoàn thành': 'muted',
++  'Đã hủy': 'danger',
++  'Vắng mặt': 'danger',
++  // Trạng thái sân
++  'Hoạt động': 'success',
++  'Bảo trì': 'warning',
++  'Ngưng hoạt động': 'muted',
++}
++
++/** Giá trị là một trạng thái đã biết thì hiện thành nhãn màu; còn lại (tiền, ghi chú...) hiện chữ thường. */
++export function toneOfValue(changeType: ChangeType, value: string): ValueTone | null {
++  if (changeType === 'price') return null
++  return STATUS_TONES[value] ?? null
++}
++
++/** Các số trang hiển thị quanh trang hiện tại (tối đa `size` số). */
++export function pageWindow(current: number, totalPages: number, size = 5): number[] {
++  if (totalPages <= 0) return []
++  const start = Math.max(1, Math.min(current - Math.floor(size / 2), totalPages - size + 1))
++  const end = Math.min(totalPages, start + size - 1)
++  return Array.from({ length: end - start + 1 }, (_, index) => start + index)
++}
+diff --git a/after/frontend/src/pages/AdminSystemLogsPage.css b/after/frontend/src/pages/AdminSystemLogsPage.css
+new file mode 100644
+index 0000000..973c411
+--- /dev/null
++++ b/after/frontend/src/pages/AdminSystemLogsPage.css
+@@ -0,0 +1,59 @@
++/* Màn 19: Nhật ký hệ thống (tiền tố sl-) */
++.sl{display:flex;flex-direction:column;gap:20px}
++.sl h1{margin:0;font-size:28px;color:#173b2b;letter-spacing:-.4px}
++.sl-sub{margin:4px 0 0;color:var(--color-muted);font-size:13px}
++.sl-visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
++
++/* Hộp thông tin chế độ chỉ đọc */
++.sl-info{background:#e9f1fb;border-radius:var(--radius-lg);padding:14px 18px;color:#1f5aa6}
++.sl-info strong{font-size:13px}
++.sl-info p{margin:4px 0 0;font-size:12px;line-height:1.6}
++
++.sl-card{background:#fff;border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
++
++/* Bộ lọc */
++.sl-filters{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
++@media (max-width:860px){.sl-filters{grid-template-columns:1fr}}
++.sl-field{display:flex;flex-direction:column;gap:5px;font-size:12px;border:0;margin:0;padding:0;min-width:0}
++.sl-field>span,.sl-field>legend{font-weight:700;color:#33443a;padding:0;margin-bottom:5px;font-size:12px}
++.sl-field select,.sl-range__inputs input{border:1px solid var(--color-border);border-radius:8px;padding:10px 12px;font:inherit;font-size:13px;background:#fff;color:inherit;min-width:0;box-sizing:border-box;width:100%}
++.sl-field select:focus,.sl-range__inputs input:focus{outline:2px solid #9fd3b6;border-color:var(--color-primary)}
++.sl-range__inputs{display:flex;align-items:center;gap:8px}
++.sl-range__inputs input[aria-invalid="true"]{border-color:var(--color-danger)}
++.sl-error{margin:0;color:var(--color-danger);font-size:12px}
++.sl-error-box{display:flex;align-items:center;gap:12px}
++.sl-error-box .alert{flex:1}
++
++/* Bảng */
++.sl-scroll{overflow-x:auto;border:1px solid #e3eae5;border-radius:10px}
++.sl-scroll.is-loading{opacity:.55;transition:opacity .15s}
++.sl-table{width:100%;border-collapse:collapse;font-size:13px;min-width:760px}
++.sl-table th{background:#f3f7f4;color:#506257;text-align:left;font-size:11px;font-weight:700;padding:11px 14px;white-space:nowrap}
++.sl-table td{padding:12px 14px;border-top:1px solid #e8eee9;color:#2b4637;vertical-align:middle}
++.sl-table tbody tr:nth-child(even){background:#fafcfa}
++.sl-time{font-weight:800;color:#173b2b;white-space:nowrap}
++.sl-actor{color:#506257}
++.sl-target{display:block;color:#173b2b}
++.sl-table td small{display:block;color:var(--color-muted);font-size:11px;margin-top:2px}
++.sl-dash{color:var(--color-muted)}
++
++/* Nhãn trạng thái */
++.sl-badge{display:inline-block;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;white-space:nowrap}
++.sl-badge--success{background:#e2f4e8;color:#157647}
++.sl-badge--warning{background:#fdf0d5;color:#9a5b00}
++.sl-badge--danger{background:#fdecea;color:#b3261e}
++.sl-badge--info{background:#e3eefb;color:#1f5aa6}
++.sl-badge--muted{background:#eef1ef;color:#5d6b63}
++
++/* Phân trang */
++.sl-pager{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;color:var(--color-muted);flex-wrap:wrap}
++.sl-pager__buttons{display:flex;gap:6px}
++.sl-pager__buttons button{min-width:30px;height:30px;border:0;border-radius:50%;background:#eef2ef;color:#4d6957;font-size:13px;cursor:pointer}
++.sl-pager__buttons button:disabled{opacity:.5;cursor:not-allowed}
++.sl-pager__buttons button.is-current{background:#e2f4e8;color:#157647;font-weight:800;opacity:1;cursor:default}
++
++.sl-empty{margin:0;text-align:center;color:var(--color-muted);padding:22px 8px;font-size:13px}
++.sl-note{margin:0;font-size:12px;color:var(--color-muted);line-height:1.6}
++.sl-note a{color:#176b42;font-weight:700}
++.sl-btn{border:1px solid #cfe0d4;background:#fff;color:#176b42;border-radius:var(--radius-md);padding:0 16px;min-height:40px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
++.sl-btn:hover{background:#f1f9f4}
+diff --git a/after/frontend/src/pages/AdminSystemLogsPage.test.tsx b/after/frontend/src/pages/AdminSystemLogsPage.test.tsx
+new file mode 100644
+index 0000000..937a34e
+--- /dev/null
++++ b/after/frontend/src/pages/AdminSystemLogsPage.test.tsx
+@@ -0,0 +1,232 @@
++import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
++import userEvent from '@testing-library/user-event'
++import { MemoryRouter } from 'react-router-dom'
++import { afterEach, describe, expect, it, vi } from 'vitest'
++import { AuthContext } from '../features/auth/authContext'
++import { defaultRange } from '../features/systemLog/systemLogView'
++import { todayLocal } from '../lib/format'
++import AdminSystemLogsPage from './AdminSystemLogsPage'
++
++const item = (overrides: Record<string, unknown>) => ({
++  id: 'booking-1',
++  changed_at: '2026-10-05T08:05:00.000Z',
++  actor: { user_id: null, display_name: 'Hệ thống' },
++  change_type: 'booking',
++  target: 'DS26100503',
++  action: 'Ghi nhận cọc thiếu',
++  old_value: 'Chờ cọc',
++  new_value: 'Đã xác nhận',
++  ...overrides,
++})
++
++const rows = [
++  item({}),
++  item({
++    id: 'booking-2',
++    changed_at: '2026-10-05T07:30:00.000Z',
++    actor: { user_id: 5, display_name: 'Trần Quốc Huy' },
++    target: 'DS261009',
++    action: 'Hủy booking',
++    old_value: 'Đã xác nhận',
++    new_value: 'Đã hủy',
++  }),
++  item({
++    id: 'price-1',
++    changed_at: '2026-10-01T02:00:00.000Z',
++    actor: { user_id: 2, display_name: 'Trần Hoàng · Admin' },
++    change_type: 'price',
++    target: 'Sân 5 người · 19–22h',
++    action: 'Sửa giá 19–22h',
++    old_value: '330.000 ₫ / giờ',
++    new_value: '350.000 ₫ / giờ',
++  }),
++]
++
++const actors = [
++  { user_id: 2, display_name: 'Trần Hoàng · Admin' },
++  { user_id: 5, display_name: 'Trần Quốc Huy' },
++]
++
++const pageOf = (items: unknown[], overrides: Record<string, unknown> = {}) => ({
++  items,
++  total: 84,
++  page: 1,
++  limit: 10,
++  total_pages: 9,
++  ...overrides,
++})
++
++const json = (body: unknown, status = 200) =>
++  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
++
++/** Giả lập server; trả về danh sách các lần gọi /admin/system-logs (đã tách tham số). */
++function mockApi(handler: (params: URLSearchParams) => Response = () => json(pageOf(rows))) {
++  const calls: URLSearchParams[] = []
++  vi.stubGlobal(
++    'fetch',
++    vi.fn(async (input: RequestInfo | URL) => {
++      const url = new URL(String(input))
++      if (url.pathname === '/admin/system-logs/actors') return json(actors)
++      if (url.pathname === '/admin/system-logs') {
++        calls.push(url.searchParams)
++        return handler(url.searchParams)
++      }
++      return json({}, 404)
++    }),
++  )
++  return calls
++}
++
++function renderPage() {
++  const user = { user_id: 1, full_name: 'Trần Hoàng', email: null, roles: ['Admin'] }
++  return render(
++    <AuthContext.Provider value={{ user, token: 'tok', signIn: () => {}, signOut: () => {}, updateUser: () => {} }}>
++      <MemoryRouter>
++        <AdminSystemLogsPage />
++      </MemoryRouter>
++    </AuthContext.Provider>,
++  )
++}
++
++afterEach(() => {
++  vi.unstubAllGlobals()
++})
++
++describe('AdminSystemLogsPage', () => {
++  it('hiện bảng nhật ký: giờ Việt Nam, người thực hiện, đối tượng, giá trị cũ/mới', async () => {
++    mockApi()
++    renderPage()
++
++    expect(await screen.findByText('DS26100503')).toBeInTheDocument()
++    expect(screen.getByText('05/10 · 15:05')).toBeInTheDocument()
++    expect(screen.getByText('05/10 · 14:30')).toBeInTheDocument()
++    expect(screen.getByText('01/10 · 09:00')).toBeInTheDocument()
++    expect(screen.getByText('Ghi nhận cọc thiếu')).toBeInTheDocument()
++    expect(screen.getByText('Hệ thống')).toBeInTheDocument()
++    expect(screen.getAllByText('Trần Quốc Huy').length).toBeGreaterThan(0)
++    expect(screen.getByText('330.000 ₫ / giờ')).toBeInTheDocument()
++    expect(screen.getByText('350.000 ₫ / giờ')).toBeInTheDocument()
++    expect(screen.getByText('Hiển thị 1–3 trong 84 thay đổi')).toBeInTheDocument()
++  })
++
++  it('trạng thái hiện thành nhãn màu, tiền và ghi chú hiện chữ thường', async () => {
++    mockApi()
++    renderPage()
++
++    const table = await screen.findByRole('table')
++    const cancelled = within(table).getByText('Đã hủy')
++    expect(cancelled).toHaveClass('sl-badge', 'sl-badge--danger')
++    expect(within(table).getByText('330.000 ₫ / giờ')).not.toHaveClass('sl-badge')
++  })
++
++  it('là chế độ chỉ đọc: không có nút sửa hay xóa', async () => {
++    mockApi()
++    renderPage()
++
++    await screen.findByRole('table')
++    expect(screen.queryByRole('button', { name: /sửa|xóa/i })).not.toBeInTheDocument()
++    expect(screen.getByText('Chế độ chỉ đọc')).toBeInTheDocument()
++  })
++
++  it('mặc định lọc từ đầu tháng đến hôm nay, đủ 10 dòng mỗi trang', async () => {
++    const calls = mockApi()
++    renderPage()
++    await screen.findByRole('table')
++
++    const { from, to } = defaultRange(todayLocal())
++    expect(calls[0].get('from')).toBe(from)
++    expect(calls[0].get('to')).toBe(to)
++    expect(calls[0].get('limit')).toBe('10')
++    expect(calls[0].get('page')).toBe('1')
++    expect(screen.getByLabelText('Từ ngày')).toHaveValue(from)
++    expect(screen.getByLabelText('Đến ngày')).toHaveValue(to)
++  })
++
++  it('có danh sách người thực hiện để lọc, lọc xong quay về trang 1', async () => {
++    const calls = mockApi()
++    const user = userEvent.setup()
++    renderPage()
++    await screen.findByRole('table')
++
++    await user.click(screen.getByRole('button', { name: 'Trang sau' }))
++    await waitFor(() => expect(calls.at(-1)?.get('page')).toBe('2'))
++
++    const actorSelect = screen.getByLabelText('Người thực hiện')
++    await waitFor(() => expect(within(actorSelect).getByRole('option', { name: 'Trần Quốc Huy' })).toBeInTheDocument())
++    await user.selectOptions(actorSelect, 'Trần Quốc Huy')
++
++    await waitFor(() => expect(calls.at(-1)?.get('actor_id')).toBe('5'))
++    expect(calls.at(-1)?.get('page')).toBe('1')
++  })
++
++  it('lọc theo loại thay đổi', async () => {
++    const calls = mockApi()
++    const user = userEvent.setup()
++    renderPage()
++    await screen.findByRole('table')
++
++    await user.selectOptions(screen.getByLabelText('Loại thay đổi'), 'Giá')
++
++    await waitFor(() => expect(calls.at(-1)?.get('change_type')).toBe('price'))
++  })
++
++  it('chọn khoảng ngày sai (từ > đến) thì báo lỗi và không gọi server', async () => {
++    const calls = mockApi()
++    renderPage()
++    await screen.findByRole('table')
++    const before = calls.length
++
++    fireEvent.change(screen.getByLabelText('Từ ngày'), { target: { value: '2999-01-01' } })
++
++    expect(await screen.findByText('Ngày bắt đầu không được sau ngày kết thúc.')).toBeInTheDocument()
++    expect(screen.queryByRole('table')).not.toBeInTheDocument()
++    expect(calls.length).toBe(before)
++  })
++
++  it('bấm số trang chuyển trang và cập nhật dòng "Hiển thị"', async () => {
++    const calls = mockApi((params) =>
++      json(pageOf(params.get('page') === '2' ? [item({ id: 'b-9', target: 'DS260999' })] : rows, { page: Number(params.get('page')) })),
++    )
++    const user = userEvent.setup()
++    renderPage()
++    await screen.findByText('DS26100503')
++
++    await user.click(screen.getByRole('button', { name: 'Trang 2' }))
++
++    expect(await screen.findByText('DS260999')).toBeInTheDocument()
++    expect(calls.at(-1)?.get('page')).toBe('2')
++    expect(screen.getByText('Hiển thị 11–11 trong 84 thay đổi')).toBeInTheDocument()
++    expect(screen.getByRole('button', { name: 'Trang 2' })).toHaveAttribute('aria-current', 'page')
++  })
++
++  it('không có dữ liệu thì báo trống', async () => {
++    mockApi(() => json(pageOf([], { total: 0, total_pages: 0 })))
++    renderPage()
++
++    expect(await screen.findByText(/Không có thay đổi nào trong khoảng này/)).toBeInTheDocument()
++    expect(screen.queryByRole('navigation', { name: 'Phân trang nhật ký' })).not.toBeInTheDocument()
++  })
++
++  it('lỗi tải thì có nút Thử lại', async () => {
++    let fail = true
++    mockApi(() => (fail ? json({ message: 'Lỗi máy chủ' }, 500) : json(pageOf(rows))))
++    const user = userEvent.setup()
++    renderPage()
++
++    expect(await screen.findByText('Lỗi máy chủ')).toBeInTheDocument()
++
++    fail = false
++    await user.click(screen.getByRole('button', { name: 'Thử lại' }))
++    expect(await screen.findByText('DS26100503')).toBeInTheDocument()
++  })
++
++  it('có liên kết sang Thanh toán & hoàn cọc', async () => {
++    mockApi()
++    renderPage()
++    await screen.findByRole('table')
++
++    // Menu bên trái cũng có liên kết cùng tên, nên chỉ tìm trong dòng ghi chú cuối trang
++    const note = screen.getByText(/được hợp nhất tại đây/)
++    expect(within(note).getByRole('link', { name: 'Thanh toán & hoàn cọc' })).toHaveAttribute('href', '/admin/payments')
++  })
++})
+diff --git a/after/frontend/src/pages/AdminSystemLogsPage.tsx b/after/frontend/src/pages/AdminSystemLogsPage.tsx
+new file mode 100644
+index 0000000..13b285c
+--- /dev/null
++++ b/after/frontend/src/pages/AdminSystemLogsPage.tsx
+@@ -0,0 +1,244 @@
++import { useState } from 'react'
++import { Link } from 'react-router-dom'
++import { Alert } from '../components/Alert'
++import { AdminLayout, adminRoute } from '../components/AdminLayout'
++import { useAuth } from '../features/auth/useAuth'
++import { useApiData } from '../features/dashboard/useApiData'
++import { fetchLogActors, fetchSystemLogs } from '../features/systemLog/systemLogApi'
++import type { ChangeType, SystemLogItem } from '../features/systemLog/systemLogApi'
++import {
++  CHANGE_TYPE_OPTIONS,
++  defaultRange,
++  formatLogTime,
++  formatLogTimeFull,
++  pageWindow,
++  toneOfValue,
++  validateRange,
++} from '../features/systemLog/systemLogView'
++import { todayLocal } from '../lib/format'
++import './AdminSystemLogsPage.css'
++
++const PAGE_SIZE = 10
++
++/** Màn 19: Nhật ký hệ thống (chỉ đọc). Admin và Staff đều xem được. */
++export default function AdminSystemLogsPage() {
++  const { token } = useAuth()
++
++  const [actorId, setActorId] = useState('')
++  const [changeType, setChangeType] = useState<ChangeType | ''>('')
++  const [range, setRange] = useState(() => defaultRange(todayLocal()))
++  const [page, setPage] = useState(1)
++
++  const rangeError = validateRange(range.from, range.to)
++
++  const logs = useApiData(
++    (signal) => fetchSystemLogs({ actorId, changeType, from: range.from, to: range.to, page, limit: PAGE_SIZE }, token, signal),
++    [actorId, changeType, range.from, range.to, page, token],
++    !rangeError,
++  )
++  // Danh sách người thao tác chỉ để đổ vào ô lọc: lỗi ở đây không chặn việc xem nhật ký
++  const actors = useApiData((signal) => fetchLogActors(token, signal), [token])
++
++  const data = rangeError ? null : logs.data
++  const items = data?.items ?? []
++  const from = data && data.total > 0 ? (data.page - 1) * data.limit + 1 : 0
++  const to = data && data.total > 0 ? from + items.length - 1 : 0
++
++  const resetPage = () => setPage(1)
++
++  return (
++    <AdminLayout breadcrumb="Nhật ký hệ thống">
++      <div className="sl">
++        <header>
++          <h1>Nhật ký hệ thống</h1>
++          <p className="sl-sub">Theo dõi ai đã thay đổi booking, sân và giá — không chỉnh sửa bản ghi.</p>
++        </header>
++
++        <aside className="sl-info" aria-label="Chế độ chỉ đọc">
++          <strong>Chế độ chỉ đọc</strong>
++          <p>
++            Giá trị cũ và mới được giữ cùng người thực hiện và thời gian (Asia/Ho_Chi_Minh). Lịch sử không có thao tác sửa hoặc xóa.
++          </p>
++        </aside>
++
++        <section className="sl-card" aria-labelledby="sl-list-title">
++          <h2 id="sl-list-title" className="sl-visually-hidden">
++            Danh sách thay đổi
++          </h2>
++
++          <div className="sl-filters">
++            <label className="sl-field">
++              <span>Người thực hiện</span>
++              <select
++                value={actorId}
++                onChange={(event) => {
++                  setActorId(event.target.value)
++                  resetPage()
++                }}
++              >
++                <option value="">Tất cả người dùng</option>
++                {(actors.data ?? []).map((actor) => (
++                  <option key={actor.user_id} value={String(actor.user_id)}>
++                    {actor.display_name}
++                  </option>
++                ))}
++              </select>
++            </label>
++
++            <label className="sl-field">
++              <span>Loại thay đổi</span>
++              <select
++                value={changeType}
++                onChange={(event) => {
++                  setChangeType(event.target.value as ChangeType | '')
++                  resetPage()
++                }}
++              >
++                <option value="">Booking / Sân / Giá</option>
++                {CHANGE_TYPE_OPTIONS.map((option) => (
++                  <option key={option.value} value={option.value}>
++                    {option.label}
++                  </option>
++                ))}
++              </select>
++            </label>
++
++            <fieldset className="sl-field sl-range">
++              <legend>Khoảng ngày</legend>
++              <div className="sl-range__inputs">
++                <input
++                  type="date"
++                  aria-label="Từ ngày"
++                  value={range.from}
++                  max={range.to || undefined}
++                  aria-invalid={Boolean(rangeError)}
++                  onChange={(event) => {
++                    setRange((current) => ({ ...current, from: event.target.value }))
++                    resetPage()
++                  }}
++                />
++                <span aria-hidden="true">–</span>
++                <input
++                  type="date"
++                  aria-label="Đến ngày"
++                  value={range.to}
++                  min={range.from || undefined}
++                  aria-invalid={Boolean(rangeError)}
++                  onChange={(event) => {
++                    setRange((current) => ({ ...current, to: event.target.value }))
++                    resetPage()
++                  }}
++                />
++              </div>
++            </fieldset>
++          </div>
++
++          {rangeError && (
++            <p className="sl-error" role="alert">
++              {rangeError}
++            </p>
++          )}
++
++          {!rangeError && logs.error && (
++            <div className="sl-error-box">
++              <Alert>{logs.error}</Alert>
++              <button type="button" className="sl-btn" onClick={logs.reload}>
++                Thử lại
++              </button>
++            </div>
++          )}
++
++          {!rangeError && !logs.error && !data && logs.loading && <p className="sl-empty">Đang tải nhật ký…</p>}
++
++          {!rangeError && !logs.error && data && items.length === 0 && !logs.loading && (
++            <p className="sl-empty">Không có thay đổi nào trong khoảng này với bộ lọc đã chọn.</p>
++          )}
++
++          {!rangeError && !logs.error && data && items.length > 0 && (
++            <div className={`sl-scroll${logs.loading ? ' is-loading' : ''}`} aria-busy={logs.loading}>
++              <table className="sl-table">
++                <thead>
++                  <tr>
++                    <th scope="col">Thời gian</th>
++                    <th scope="col">Người thực hiện</th>
++                    <th scope="col">Đối tượng / thao tác</th>
++                    <th scope="col">Giá trị cũ</th>
++                    <th scope="col">Giá trị mới</th>
++                  </tr>
++                </thead>
++                <tbody>
++                  {items.map((item) => (
++                    <tr key={item.id}>
++                      <td className="sl-time">
++                        <time dateTime={item.changed_at} title={formatLogTimeFull(item.changed_at)}>
++                          {formatLogTime(item.changed_at)}
++                        </time>
++                      </td>
++                      <td className="sl-actor">{item.actor.display_name}</td>
++                      <td>
++                        <span className="sl-target">{item.target}</span>
++                        <small>{item.action}</small>
++                      </td>
++                      <td>
++                        <LogValue item={item} value={item.old_value} />
++                      </td>
++                      <td>
++                        <LogValue item={item} value={item.new_value} />
++                      </td>
++                    </tr>
++                  ))}
++                </tbody>
++              </table>
++            </div>
++          )}
++
++          {!rangeError && !logs.error && data && data.total > 0 && (
++            <nav className="sl-pager" aria-label="Phân trang nhật ký">
++              <span>
++                Hiển thị {from}–{to} trong {data.total} thay đổi
++              </span>
++              <div className="sl-pager__buttons">
++                <button type="button" aria-label="Trang trước" disabled={data.page <= 1 || logs.loading} onClick={() => setPage(data.page - 1)}>
++                  ‹
++                </button>
++                {pageWindow(data.page, data.total_pages).map((number) => (
++                  <button
++                    key={number}
++                    type="button"
++                    aria-label={`Trang ${number}`}
++                    aria-current={number === data.page ? 'page' : undefined}
++                    className={number === data.page ? 'is-current' : undefined}
++                    disabled={number === data.page || logs.loading}
++                    onClick={() => setPage(number)}
++                  >
++                    {number}
++                  </button>
++                ))}
++                <button
++                  type="button"
++                  aria-label="Trang sau"
++                  disabled={data.page >= data.total_pages || logs.loading}
++                  onClick={() => setPage(data.page + 1)}
++                >
++                  ›
++                </button>
++              </div>
++            </nav>
++          )}
++        </section>
++
++        <p className="sl-note">
++          Lịch sử booking, sân và giá được hợp nhất tại đây. Các khoản thu và hoàn tiền xem thêm ở{' '}
++          <Link to={adminRoute('payments') ?? '/admin/payments'}>Thanh toán &amp; hoàn cọc</Link>.
++        </p>
++      </div>
++    </AdminLayout>
++  )
++}
++
++/** Giá trị cũ / mới: trạng thái đã biết hiện thành nhãn màu, còn lại là chữ thường. */
++function LogValue({ item, value }: { item: SystemLogItem; value: string }) {
++  const tone = toneOfValue(item.change_type, value)
++  if (tone) return <span className={`sl-badge sl-badge--${tone}`}>{value}</span>
++  return <span className={value === '—' ? 'sl-dash' : undefined}>{value}</span>
++}

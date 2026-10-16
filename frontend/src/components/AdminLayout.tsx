@@ -22,7 +22,7 @@ export const ADMIN_NAV: NavItem[] = [
   { id: 'services', label: 'Dịch vụ', to: '/admin/services', icon: 'M12 3l8 4v10l-8 4-8-4V7zM12 12l8-5M12 12v9M12 12L4 7' },
   { id: 'payments', label: 'Thanh toán & hoàn cọc', to: '/admin/payments', icon: 'M3 6h18v12H3zM3 10h18M7 15h4' },
   { id: 'users', label: 'Người dùng', to: '/admin/users', adminOnly: true, icon: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M17 11a2.5 2.5 0 1 0 0-5M18 15c2 .5 3 2 3 5' },
-  { id: 'logs', label: 'Nhật ký hệ thống', icon: 'M12 7v5l3 2M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4' },
+  { id: 'logs', label: 'Nhật ký hệ thống', to: '/admin/logs', icon: 'M12 7v5l3 2M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4' },
 ]
 
 /** Đường dẫn của một màn quản trị (undefined nếu màn đó chưa làm). */

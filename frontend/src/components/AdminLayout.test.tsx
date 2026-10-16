@@ -30,11 +30,16 @@ describe('AdminLayout', () => {
     expect(screen.getByText('Vai trò: Nhân viên')).toBeInTheDocument()
   })
 
-  it('màn đã có route là liên kết, màn chưa làm hiện mờ "Sắp có"', () => {
+  it('mọi màn đã có route đều là liên kết (kể cả Nhật ký hệ thống)', () => {
     setup(['Admin'])
     expect(screen.getByRole('link', { name: 'Tổng quan & báo cáo' })).toHaveAttribute('href', '/admin')
     expect(screen.getByRole('link', { name: 'Dịch vụ' })).toHaveAttribute('href', '/admin/services')
-    expect(screen.queryByRole('link', { name: 'Nhật ký hệ thống' })).not.toBeInTheDocument()
-    expect(screen.getByText('Nhật ký hệ thống').closest('[aria-disabled="true"]')).not.toBeNull()
+    expect(screen.getByRole('link', { name: 'Nhật ký hệ thống' })).toHaveAttribute('href', '/admin/logs')
+    expect(screen.queryByTitle('Sắp có')).not.toBeInTheDocument()
+  })
+
+  it('nhân viên vẫn thấy menu Nhật ký hệ thống', () => {
+    setup(['Staff'])
+    expect(screen.getByRole('link', { name: 'Nhật ký hệ thống' })).toBeInTheDocument()
   })
 })

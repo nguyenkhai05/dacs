@@ -19,6 +19,7 @@ import AdminPitchesPage from './pages/AdminPitchesPage'
 import AdminPaymentsPage from './pages/AdminPaymentsPage'
 import AdminServicesPage from './pages/AdminServicesPage'
 import AdminUsersPage from './pages/AdminUsersPage'
+import AdminSystemLogsPage from './pages/AdminSystemLogsPage'
 import BookingDetailPage from './pages/BookingDetailPage'
 
 // Bảng định tuyến: địa chỉ trên thanh URL → trang nào được vẽ
@@ -37,6 +38,8 @@ export default function App() {
       {/* Màn 16: Admin thêm/sửa, nhân viên chỉ xem */}
       <Route path="/admin/services" element={<RequireRole roles={ADMIN_ROLES}><AdminServicesPage /></RequireRole>} />
       <Route path="/admin/payments" element={<RequireRole roles={ADMIN_ROLES}><AdminPaymentsPage /></RequireRole>} />
+      {/* Màn 19: Nhật ký hệ thống (chỉ đọc), Admin và nhân viên đều xem được */}
+      <Route path="/admin/logs" element={<RequireRole roles={ADMIN_ROLES}><AdminSystemLogsPage /></RequireRole>} />
       <Route path="/admin/bookings" element={<RequireRole roles={ADMIN_ROLES}><AdminBookingsPage /></RequireRole>} />
       <Route path="/bookings" element={<RequireAuth><MyBookingsPage /></RequireAuth>} />
       <Route path="/account" element={<RequireAuth><AccountPage /></RequireAuth>} />
