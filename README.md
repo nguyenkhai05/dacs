@@ -1,159 +1,162 @@
-# Đặt Sân Nhanh (NestJS + MySQL + React)
+Đặt Sân Nhanh — Hệ thống đặt sân thể thao trực tuyến
+Dự án gồm giao diện người dùng viết bằng React + TypeScript + Vite và API viết bằng NestJS, sử dụng MySQL để lưu dữ liệu. README này hướng dẫn thiết lập và chạy dự án trên máy cá nhân.
+Lưu ý: Backend cần MySQL đang hoạt động và có dữ liệu/schema của dự án. Việc đổi DB_PORT trong .env chỉ thay đổi cổng mà backend kết nối tới; nó không khởi động MySQL và cũng không thay thế bước tạo database.
 
-Hệ thống đặt sân thể thao trực tuyến. `nest/` là backend (API), `frontend/` là giao diện khách hàng (React + Vite + TypeScript).
+1. Công nghệ sử dụng
 
-## Yêu cầu
-- Node.js 22+ (Dev Container trong `.devcontainer/`)
-- MySQL 8+
+- Node.js và npm
+- NestJS (backend/API)
+- React, TypeScript, Vite (frontend)
+- MySQL và thư viện mysql2
+- JWT để xác thực; bcrypt để băm mật khẩu
 
-## Cài đặt & chạy
-```bash
-# 1. Tạo database (MỘT file duy nhất, đã gộp toàn bộ migration 001-009 + dữ liệu mẫu)
-mysql -u root -p < football_pitch_db.sql
-#    Hoặc dựng MySQL bằng Docker (tự nạp file trên ở lần chạy đầu):
-#    docker compose -f docker-compose.db.yml up -d
+2. Cấu trúc thư mục
+   dacs-main/
+   ├── db/
+   │ └── migrations/ # Migration dùng khi nâng cấp database thêm sau football_pitch_db.sql
+   ├── frontend/ # Giao diện React + Vite
+   │ ├── src/
+   │ ├── .env  
+   │ └── package.json
+   ├── nest/ # Backend NestJS
+   │ ├── src/
+   │ ├── scripts/ # Script tạo tài khoản Admin
+   │ ├── .env  
+   │ └── package.json
+   ├── football_pitch_db.sql # Schema + dữ liệu mẫu để cài
+   └── README.md
+3. Yêu cầu trước khi chạy
+4. Node.js phiên bản 22 trở lên được khuyến nghị. Kiểm tra bằng:
+   node -v
+   npm -v
+5. MySQL đang chạy trên máy hoặc trên máy chủ mà máy bạn có thể truy cập. Bạn cần biết host, cổng, tên database, username và password.
+6. Git nếu muốn clone repository.
+7. Trình duyệt hiện đại để mở frontend.
+   Không cần cài Nest CLI toàn cục: các lệnh npm run sẽ sử dụng công cụ được cài trong dependencies của dự án.
+8. Lấy mã nguồn
+   Nếu clone từ Git:
+   git clone <https://github.com/nguyenkhai05/dacs.git>
+   cd dacs-main
+   Nếu tải ZIP, giải nén rồi mở terminal tại thư mục gốc dacs-main/ — nơi có football_pitch_db.sql, frontend/ và nest/.
+9. Chuẩn bị MySQL
+   Cài đặt database mới
+   Tạo database/schema MySQL mà bạn muốn dùng. Sau đó, từ thư mục gốc dự án, nạp file SQL đi kèm. Ví dụ nếu MySQL chạy trên máy và tài khoản là root:
+   mysql -u root -p < football_pitch_db.sql
+   Nhập mật khẩu MySQL khi được hỏi. Nếu máy bạn không nhận lệnh mysql, hãy mở MySQL Workbench hoặc công cụ quản trị MySQL khác, chọn đúng kết nối và chạy nội dung file football_pitch_db.sql.
 
-# 2. Cấu hình backend
-cd nest
-cp .env.example .env     # điền DB_*, JWT_SECRET, PAYMENT_*
+Nếu MySQL chạy ở host/cổng khác, hãy chỉ định thông tin kết nối tương ứng cho lệnh mysql hoặc chọn đúng kết nối trong Workbench(hoặc hệ quản trị khác). Không cần chạy các migration riêng lẻ để cài mới nếu file football_pitch_db.sql đã là bản schema gộp được cung cấp trong repository.
+Nếu đã có database từ phiên bản cũ
+Sao lưu database trước khi thay đổi. Thư mục db/migrations/ dành cho việc nâng cấp schema cũ; không chạy tùy tiện tất cả migration trên một database mới đã được nạp từ file SQL gộp. Đọc nội dung migration và xác định phiên bản database trước khi áp dụng.
+Các bước sau đây giả định MySQL đã chạy, database đã được nạp và thông tin kết nối là chính xác.
+
+6. Cấu hình backend NestJS
+   Mở terminal tại thư mục gốc rồi chuyển vào backend:
+   cd nest
+   nội dung file.env bên dưới và thay các giá trị bằng thông tin thực tế:
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_USER=root
+   DB_PASSWORD=mat_khau_mysql_cua_ban
+   DB_NAME=football_pitch_db
+
+JWT_SECRET=THAY_BANG_CHUOI_BI_MAT_DUOC_TAO_O_BUOC_6_1
+PORT=3000
+
+CORS_ORIGIN=http://localhost:5173
+
+PAYMENT_BANK_ID=
+PAYMENT_BANK_NAME=
+PAYMENT_ACCOUNT_NUMBER=
+PAYMENT_ACCOUNT_NAME=
+PAYMENT_WEBHOOK_SECRET=
+Quan trọng: DB_NAME phải khớp tên database bạn thực sự đã tạo/nạp SQL. Nếu tên schema trong MySQL khác football_pitch_db, hãy sửa lại giá trị này. DB_PORT phải là cổng MySQL thực tế; nếu bạn đã đổi cổng thì ghi cổng mới tại đây. DB_HOST=127.0.0.1 phù hợp khi MySQL có thể truy cập qua loopback trên cùng máy. Nếu MySQL ở máy khác, dùng hostname/IP tương ứng.
+
+Các biến thanh toán có thể để trống khi chỉ thử những phần không cần tích hợp ngân hàng. Chức năng QR/chuyển khoản và webhook không thể kiểm thử đầy đủ nếu chưa cấu hình thông tin thanh toán hợp lệ.
+6.1. Tạo JWT_SECRET
+JWT_SECRET là khóa bí mật backend dùng để ký/kiểm tra JSON Web Token. Không dùng một chuỗi dễ đoán như secret, 123456 hoặc giá trị ví dụ bên trên.
+
+Trong terminal, chạy lệnh sau bằng Node.js:
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+Lệnh tạo ra 32 byte ngẫu nhiên và in thành chuỗi hexadecimal 64 ký tự. Sao chép kết quả và dán vào JWT*SECRET trong nest/.env, ví dụ:
+JWT_SECRET=dan_chuoi_ngau_nhien_vua_tao_vao_day
+Dòng ví dụ trên chỉ minh họa vị trí cần điền, không dùng nguyên văn. Giữ giá trị này riêng tư, không commit lên Git. Nếu thay khóa, các token đã được ký bằng khóa cũ thường sẽ không còn hợp lệ và người dùng có thể phải đăng nhập lại.
+6.2. Cài dependencies backend
+Vẫn ở thư mục nest/, chạy:
 npm install
-npm run create-admin     # tạo tài khoản Admin đầu tiên (hỏi email / SĐT / mật khẩu)
-npm run start:dev        # http://localhost:3000  — kiểm tra: http://localhost:3000/health
+Nếu repository có package-lock.json và bạn muốn cài đúng dependency đã khóa, có thể dùng npm ci thay cho npm install trên một môi trường sạch.
+6.3. Tạo tài khoản Admin đầu tiên
+Đảm bảo database đã được nạp và các biến DB*\* trong nest/.env đúng. Chạy lệnh từ chính thư mục nest/:
+node scripts/create-admin.mjs
+Script sẽ hỏi email, số điện thoại, họ tên và mật khẩu. Mật khẩu cần tối thiểu 8 ký tự; hãy dùng mật khẩu riêng để thử nghiệm. Script tạo tài khoản hoặc cập nhật tài khoản trùng email/số điện thoại và gán vai trò Admin/Staff.
 
-# 3. Chạy frontend (terminal khác)
-cd frontend
-cp .env.example .env 2>/dev/null || echo "VITE_API_URL=http://localhost:3000" > .env
+Nếu cần truyền thông tin trực tiếp, script hỗ trợ các tham số như sau (tránh dùng cách này trên máy dùng chung vì mật khẩu có thể lưu trong lịch sử lệnh):
+node scripts/create-admin.mjs --email admin@example.com --phone 0900000000 --name "Quan tri vien"
+Khi không truyền --password, script sẽ hỏi mật khẩu tương tác. Không nên đặt mật khẩu thật trong dòng lệnh.
+6.4. Chạy backend
+npm run start:dev
+Mặc định API chạy tại http://localhost:3000. Giữ terminal này mở trong khi sử dụng ứng dụng. Để dừng server, nhấn Ctrl+C.
+
+Mở đường dẫn kiểm tra sức khỏe:
+
+- http://localhost:3000/health
+  Endpoint này giúp kiểm tra tình trạng backend và kết nối/dữ liệu database. Nếu backend báo lỗi database, kiểm tra MySQL và các biến DB\_\* trước khi tiếp tục.
+
+7. Cấu hình và chạy frontend React
+   Mở terminal thứ hai, chuyển về thư mục gốc dự án nếu cần, sau đó:
+   cd frontend
+   Tạo file frontend/.env với nội dung:
+   VITE*API_URL=http://localhost:3000
+   VITE_API_URL là địa chỉ backend mà frontend gọi. Nếu backend chạy ở cổng khác, cập nhật URL cho khớp. Biến có tiền tố VITE* được đưa vào mã frontend khi build, vì vậy không đặt secret, mật khẩu hay JWT secret trong file này.
+
+Cài dependencies:
 npm install
-npm run dev              # http://localhost:5173
-```
-Thư mục `db/migrations/` chỉ cần khi nâng cấp một database CŨ; cài mới chỉ cần `football_pitch_db.sql`.
+Chạy máy chủ phát triển:
+npm run dev
+Vite thường hiển thị địa chỉ như http://localhost:5173. Mở địa chỉ mà terminal in ra trong trình duyệt. Giữ terminal này mở khi thử ứng dụng. Dừng bằng Ctrl+C. 8. Thử nghiệm ứng dụng
 
-### Nếu đăng ký / đăng nhập báo "Không kết nối được máy chủ"
-1. Mở `http://localhost:3000/health`. Không mở được → backend chưa chạy (xem lỗi ở terminal `npm run start:dev`; thường do thiếu `JWT_SECRET` trong `.env`).
-2. `/health` báo lỗi CSDL → kiểm tra MySQL đã chạy và `DB_HOST` đúng. **Trong Dev Container, `localhost` là chính container backend**, không phải MySQL: dùng `host.docker.internal` hoặc tên service MySQL.
-3. `/health` báo `degraded` + `missing_roles` → chạy lại `football_pitch_db.sql` (bảng `roles` thiếu dữ liệu).
-4. Backend log "thiếu bảng/cột" → database chưa đúng phiên bản, nạp lại `football_pitch_db.sql`.
+1. Xác nhận MySQL đang chạy và database đã được nạp.
+2. Chạy backend trong terminal thứ nhất và kiểm tra http://localhost:3000/health.
+3. Chạy frontend trong terminal thứ hai và mở địa chỉ Vite, mặc định http://localhost:5173.
+4. Thử xem trang chủ/danh sách sân, mở chi tiết sân và xem đánh giá.
+5. Thử đăng ký tài khoản khách hàng rồi đăng nhập. Nếu đăng ký/đăng nhập lỗi, xem phần xử lý sự cố bên dưới và log backend.
+6. Dùng tài khoản Admin đã tạo ở bước 6.3 để kiểm tra các màn quản trị có trong phiên bản hiện tại.
+7. Các thao tác đặt sân, thanh toán, webhook, gửi email và hoàn tiền có thể cần dữ liệu phù hợp hoặc cấu hình tích hợp bổ sung; không xem việc giao diện hiển thị là bằng chứng rằng thanh toán thật đã được thực hiện.
+8. Lệnh hữu ích
+   Backend (nest/)
+   npm run start:dev # chạy phát triển, tự khởi động lại khi sửa code
+   npm run build # build backend
+   npm run start:prod # chạy bản build (sau khi build)
+   npm test # chạy unit test
+   npm run test:e2e # chạy end-to-end test
+   npm run lint # kiểm tra lint
+   Frontend (frontend/)
+   npm run dev # chạy Vite dev server
+   npm run build # kiểm tra TypeScript và build frontend
+   npm run preview # xem thử bản build cục bộ
+   npm test # chạy test một lần
+   npm run test:watch # chạy test theo dõi thay đổi
+9. Xử lý sự cố thường gặp
+   Không mở được http://localhost:3000/health
 
-## Biến môi trường chính
-| Biến | Ý nghĩa |
-|---|---|
-| `DB_HOST/PORT/USER/PASSWORD/NAME` | Kết nối MySQL |
-| `JWT_SECRET`, `JWT_EXPIRES_IN` | Ký token (vd `1h`, `7d` hoặc số giây) |
-| `CORS_ORIGIN` | Origin frontend được gọi API, cách nhau bằng dấu phẩy |
-| `PAYMENT_*`, `DEPOSIT_PERCENT` | Tài khoản nhận cọc VietQR, % cọc, thời gian giữ chỗ |
-| `PAYMENT_WEBHOOK_SECRET` | Secret xác thực webhook ngân hàng: header `x-webhook-secret` hoặc `Authorization: Apikey <secret>`. Endpoint: `POST /payments/webhook/bank` (định dạng riêng) và `POST /payments/webhook/sepay` (payload kiểu SePay; đối chiếu lại với tài liệu nhà cung cấp trước khi dùng thật) |
-| `REFUND_FULL_HOURS`, `REFUND_PARTIAL_HOURS`, `REFUND_PARTIAL_PERCENT` | Chính sách hoàn cọc khi khách hủy (mặc định 24h / 12h / 50%) |
-
-## API hiện có
-| Màn | Method & route | Quyền |
-|---|---|---|
-| 01 | `POST /auth/login` (`identifier` = email hoặc SĐT, `password`) | Công khai |
-| 02 | `POST /auth/register` | Công khai |
-| 04 | `GET /home` | Công khai |
-| 05 | `GET /home/pitches?date&category_id&q&district&min_price&max_price&amenities&sort&page&limit` | Công khai |
-| 05/06 | `GET /pitches`, `GET /pitches/:id` | Công khai |
-| 06 | `GET /bookings/availability?pitch_id&date` | Công khai |
-| 07 | `GET /services` | Công khai |
-| 07 | `POST /bookings/quote` (tính tiền sân + dịch vụ + cọc, chưa giữ sân) | Công khai |
-| 07 | `POST /bookings` (có thể kèm `services: [{service_id, quantity}]`) | Đăng nhập |
-| 09 | `GET /bookings/my?tab=all\|upcoming\|completed\|cancelled&page&limit` | Đăng nhập |
-| 10 | `GET /bookings/:id` (chi tiết, thanh toán, hoàn cọc, lịch sử, xem trước hủy) | Chủ đơn / Staff / Admin |
-| 10 | `POST /bookings/:id/cancel` (`reason` tùy chọn) | Chủ đơn |
-| 08 | `POST /payments/deposit`, `GET /payments/deposit/:bookingId` | Đăng nhập |
-| 08 | `POST /payments/webhook/bank` | Secret webhook |
-| – | `POST /payments/:paymentId/confirm` | Admin, Staff |
-| 12 | `GET /reviews?pitch_id&rating&page&limit` (tổng quan sao + danh sách, tên người đánh giá được che) | Công khai |
-| 12 | `POST /reviews` (`booking_id`, `rating` 1-5, `comment` tùy chọn; chỉ đơn `Completed` của chính mình, mỗi đơn 1 lần) | Đăng nhập |
-| 12 | `GET /reviews/booking/:bookingId` (đơn đã đánh giá chưa / có đánh giá được không) | Chủ đơn |
-| 12 | `PUT /reviews/:id` (sửa đánh giá của mình) | Chủ đánh giá |
-| 13 | `GET /dashboard/overview?date&view=day\|week` (KPI, biểu đồ, đơn mới nhất, lượt sắp diễn ra) | Admin, Staff |
-| 13 | `GET /dashboard/revenue?date` (doanh thu thuần 7 ngày = thu − hoàn theo ngày giao dịch, kèm tách thu / hoàn từng ngày) | Admin, Staff |
-| 13 | `GET /dashboard/report?period=day\|week\|month&date&group_by=pitch\|category` (bảng giờ đã đặt + doanh thu thuần, giờ cao điểm, tỷ lệ hủy / không đến) | Admin, Staff |
-| 13 | `GET /dashboard/report/export?...` (CSV, cùng tham số với `report`) | Admin, Staff |
-| 15 | `GET /admin/pitches?status&category_id&q` (danh sách sân + tổng quan trạng thái + khoảng giá + số lượt sắp tới) | Admin, Staff |
-| 15 | `GET /admin/pitches/:id` (chi tiết, bảng giá, khoảng trống giá, lịch sử sửa) | Admin, Staff |
-| 15 | `POST /admin/pitches`, `PATCH /admin/pitches/:id` | Admin |
-| 15 | `PATCH /admin/pitches/:id/status` (`Available`/`Maintenance`/`Inactive`; chặn nếu còn lịch sắp tới) | Admin, Staff |
-| 15 | `GET /admin/pitch-categories` (loại sân + bảng giá + khoảng trống giá) | Admin, Staff |
-| 15 | `POST /admin/pitch-categories`, `PATCH /admin/pitch-categories/:id` | Admin |
-| 15 | `GET /admin/pitch-categories/:id/price-slots`, `GET .../price-history` | Admin, Staff |
-| 15 | `POST /admin/pitch-categories/:id/price-slots` (`day_type`: `All`/`Weekday`/`Weekend`/`Holiday`, `start_time`, `end_time`, `price_per_hour`) | Admin |
-| 15 | `GET /admin/pitch-categories/:id/price-preview?date=YYYY-MM-DD` (bảng giá thực tế áp dụng cho một ngày) | Admin, Staff |
-| 15 | `PATCH /admin/price-slots/:id`, `DELETE /admin/price-slots/:id` | Admin |
-| 15 | `GET /admin/holidays?from&to` | Admin, Staff |
-| 15 | `POST /admin/holidays` (`name`, `date`, `end_date?` - tối đa 31 ngày/lần), `DELETE /admin/holidays/:date` | Admin |
-| 18 | `GET /admin/users/customers?q&status=active\|locked&page&limit` (khách + tổng booking, hủy / không đến, phân trang) | Admin |
-| 18 | `GET /admin/users/customers/:id` (chi tiết, ghi chú, booking gần đây kèm hoàn cọc, lịch sử thao tác) | Admin |
-| 18 | `PATCH /admin/users/customers/:id/note` (`note`) | Admin |
-| 18 | `PATCH /admin/users/customers/:id/status` (`is_active`, `reason` - bắt buộc khi khóa) | Admin |
-| 18 | `GET /admin/users/staff` (nhân viên + vai trò, cờ `is_last_admin`, `can_grant_admin`, `can_revoke_admin`) | Admin |
-| 18 | `POST /admin/users/staff` (`full_name`, `email`, `role`: `Admin`/`Staff`, tùy chọn `employee_code`, `position`, `phone_number`) | Admin |
-| 18 | `PATCH /admin/users/staff/:id/role` (`role`: `Admin` = cấp, `Staff` = thu hồi Admin) | Admin |
-| 18 | `POST /admin/users/staff/:id/resend-invite` | Admin |
-
-Đăng nhập sai quá 5 lần trong 15 phút sẽ bị khóa tạm (HTTP 429).
-
-## Tiến độ theo màn hình
-- ✅ 01, 02, 03, 04, 05, 06, 07, 09, 10, 11, 12 (backend)
-- ⚠️ 08: có QR + webhook + tự hủy đơn hết hạn; cần cấu hình `PAYMENT_*` để chạy thật
-- ✅ 13 (tổng quan & báo cáo)
-- ✅ 15 (sân & bảng giá: khung giờ + thứ trong tuần + ngày lễ). **Cần chạy `db/migrations/006_price_day_types.sql`** (thêm `price_slots.day_type`, bảng `holidays`, cập nhật trigger chống chồng giờ)
-- ✅ 18 (người dùng: khách hàng + nhân viên & vai trò). **Cần chạy `db/migrations/009_user_admin.sql`** (bảng `user_admin_history`)
-- ✅ 14, 16, 17, 19 (phân hệ quản trị): backend đã có (`/admin/bookings`, `/admin/services`, `/admin/payments`, `/admin/system-log`); **frontend quản trị còn 19**
-- Frontend khách hàng: ✅ 01-08 (08 = `/payment/:bookingId`), ✅ 12 (`/pitches/:id/reviews`, nút "Xem đánh giá" ở trang chi tiết sân; chọn sẵn booking bằng `?booking=<id>`), ⏳ 09-11
-- Frontend quản trị: ✅ 13 (`/admin`, khung chung `components/AdminLayout.tsx`: các màn sau chỉ cần điền `to` cho mục menu trong `ADMIN_NAV` và bọc trang bằng `<AdminLayout>`), ✅ 14, 15 (`/admin/bookings`, `/admin/pitches`), ✅ 18 (`/admin/users`, chỉ Admin), ✅ 16 (`/admin/services`: Admin thêm/sửa dịch vụ, nhân viên chỉ xem), ✅ 17 (`/admin/payments`), ⏳ 19
-
-## Quy tắc chọn bảng giá theo ngày (migration 006)
-Mỗi khung giá có `day_type`: `All` (mọi ngày - toàn bộ khung giá cũ được giữ ở loại này), `Weekday` (T2-T6), `Weekend` (T7-CN), `Holiday` (ngày có trong bảng `holidays`).
-Với mỗi loại sân, bộ khung giá của một ngày được chọn theo thứ tự (loại ngày nào có khung giá riêng thì dùng riêng **cả bộ** đó):
-- Ngày lễ: `Holiday` → `Weekend`/`Weekday` (theo thứ thật) → `All`
-- Ngày thường: `Weekend`/`Weekday` → `All`
-
-Áp dụng thống nhất cho: tính tiền khi đặt/báo giá, `availability`, giá & ca trống ở trang chủ, sức chứa ở dashboard. Đơn đã tạo giữ nguyên giá. API quản trị trả `price_gaps` theo từng loại ngày để cảnh báo giờ nào chưa có giá (khách không đặt được giờ đó).
-
-## Khác biệt giữa schema thực tế và bản đặc tả
-Schema trong `football_pitch_db.sql` được thiết kế chi tiết hơn bản đặc tả (SRS) nên một số bảng đổi tên/tách ra:
-
-| Đặc tả (SRS) | Schema thực tế |
-|---|---|
-| `Users.role` | `users` + `roles` + `user_roles` (một người nhiều vai trò) |
-| `Grounds`, `Venues` | `pitches`, `pitch_categories` (một cụm sân) |
-| `TimeSlots` | `price_slots` (giá theo loại sân + khung giờ) |
-| `Transactions` | `invoices`, `invoice_items`, `payments`, `payment_refunds` |
-| `AuditLogs` | Các bảng `*_history` + trigger; **chưa có bảng audit log chung** (làm ở màn 19) |
-| `Reviews` | **Chưa có** (làm ở màn 12) |
-| Khóa slot bằng Redis | Khóa dòng sân `SELECT ... FOR UPDATE` + đơn `Pending` có hạn giữ chỗ |
-
-## Lưu ý Git
-- `node_modules/` không được commit (đã có `.gitignore` ở gốc và `frontend/`). Nếu trước đó đã lỡ commit: `git rm -r --cached node_modules frontend/node_modules`.
-- Không commit `.env`; dùng `.env.example` làm mẫu.
-
-## Dịch vụ đi kèm & tồn kho (màn 07)
-- Khi tạo đơn, hệ thống **khóa dòng dịch vụ**, kiểm tra còn kinh doanh và đủ tồn kho, lưu **giá tại thời điểm đặt** vào `booking_services` và **trừ kho ngay** (giữ hàng).
-- Kho được **trả lại** khi đơn bị hủy (khách hủy hoặc hết hạn giữ chỗ).
-- Giá sân và giá dịch vụ luôn do server tính; client không gửi được giá.
-
-## Hủy đơn & hoàn cọc (màn 10)
-| Thời điểm hủy | Kết quả |
-|---|---|
-| Đơn chưa cọc (`Pending`) | Hủy ngay, trả kho, không có hoàn tiền |
-| Đã cọc, hủy sớm ≥ 24h trước giờ đá | Yêu cầu hoàn **100%** cọc |
-| Đã cọc, hủy trong 12h–24h | Yêu cầu hoàn **50%** cọc |
-| Đã cọc, hủy trong vòng 12h | Mất cọc |
-| Đã quá giờ bắt đầu | Không hủy được |
-
-Các mốc giờ và % chỉnh trong `.env` (`REFUND_*`). Yêu cầu hoàn được ghi vào `payment_refunds` với trạng thái `Pending`; **việc duyệt chi tiền hoàn là của quản lý ở màn 17** (chưa làm).
-
-
-
-## Người dùng (màn 18)
-- Chỉ **Admin** truy cập. Mọi thao tác ghi kiểm tra lại quyền Admin trong DB (JWT có thể cũ tới `JWT_EXPIRES_IN`).
-- **Khóa khách**: `users.is_active = 0` → không đăng nhập được và không tạo được đơn mới (kể cả token cũ). Không xóa booking/giao dịch; lý do khóa bắt buộc. Tài khoản Admin/Staff không khóa được ở màn này.
-- **Nhân viên**: luôn giữ vai trò `Staff`; "Cấp Admin" thêm vai trò `Admin`, "Thu hồi" gỡ `Admin` (vẫn là `Staff`). **Không thu hồi được Admin hoạt động cuối cùng** (khóa dòng chống thao tác đồng thời).
-- Tạo nhân viên: mật khẩu ngẫu nhiên không ai biết, email hướng dẫn nhân viên tự đặt mật khẩu qua "Quên mật khẩu". Chưa cấu hình SMTP thì `email_sent = false` (dùng `resend-invite` sau). Nếu không gửi `phone_number`, cột SĐT tạm dùng mã nhân viên (do `users.phone_number` là NOT NULL UNIQUE).
-- Lịch sử khóa/mở khóa/đổi vai trò/sửa ghi chú lưu ở `user_admin_history` (màn 19 có thể đọc lại).
-
-## Tổng quan & báo cáo (màn 13)
-- Doanh thu thuần = thanh toán thành công − hoàn tiền thành công, tính theo **ngày giao dịch** (giờ VN), không theo ngày đá. `/dashboard/revenue` và thẻ KPI cùng định nghĩa này.
-- Giờ cao điểm = khung 2 giờ liên tiếp có nhiều giờ sân được đặt nhất; mức lấp đầy của khung = giờ đã đặt ÷ (số sân đang hoạt động × 2 giờ × số ngày trong kỳ). Đây là ước lượng theo số sân, khác với KPI "tỷ lệ lấp đầy" của tổng quan (tính theo khung giá có hiệu lực).
-- Tỷ lệ hủy / không đến: mẫu số là mọi booking có ngày đá trong kỳ, gồm mọi trạng thái.
+- Kiểm tra terminal backend còn chạy hay đã thoát do lỗi.
+- Kiểm tra PORT trong nest/.env và URL đang mở.
+- Nếu log nói thiếu JWT_SECRET, tạo secret theo mục 6.1.
+- Nếu cổng đã được chương trình khác sử dụng, đổi PORT và cập nhật VITE_API_URL ở frontend cho khớp.
+  Backend không kết nối được MySQL
+- Xác nhận MySQL thực sự đang chạy; đổi DB_PORT trong .env không tự khởi động MySQL.
+- Kiểm tra DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME.
+- Đảm bảo người dùng MySQL có quyền truy cập schema đã chọn.
+- Kiểm tra đã nạp đúng football_pitch_db.sql vào đúng database chưa.
+  Trang frontend mở được nhưng không lấy được dữ liệu
+- Kiểm tra backend đang chạy.
+- Kiểm tra frontend/.env có VITE_API_URL=http://localhost:3000 và đúng cổng backend.
+- Sau khi sửa .env, dừng rồi chạy lại npm run dev để Vite đọc cấu hình mới.
+- Mở Developer Tools của trình duyệt (F12), xem tab Console và Network để đọc lỗi API/CORS. Ở chế độ phát triển, backend cho phép origin localhost; nếu frontend chạy ở hostname/cổng khác, kiểm tra CORS_ORIGIN.
+  Báo thiếu bảng/cột hoặc thiếu vai trò
+- Đảm bảo bạn đã nạp đúng file SQL gộp của dự án vào đúng schema.
+- Nếu đang dùng database cũ, xác định migration nào còn thiếu và sao lưu trước khi nâng cấp.
+- Nếu log báo thiếu Admin, Staff hoặc Customer, kiểm tra dữ liệu bảng roles trong database.
+  Đăng nhập báo sai thông tin hoặc bị giới hạn
+- Kiểm tra email/số điện thoại và mật khẩu.
+- Script tạo Admin phải chạy thành công trên đúng database.
+- Đăng nhập sai nhiều lần có thể bị giới hạn tạm thời; chờ hết thời gian giới hạn rồi thử lại.
