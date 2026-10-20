@@ -82,6 +82,8 @@ interface DetailRow {
     customer_note: string | null;
     created_at: Date | string;
     hold_seconds_left: string | number;
+    customer_name: string | null;
+    customer_phone: string | null;
 }
 
 interface LockedBookingRow {
@@ -456,10 +458,13 @@ export class MyBookingsService {
                 b.total_pitch_price,
                 b.customer_note,
                 b.created_at,
+                u.full_name AS customer_name,
+                u.phone_number AS customer_phone,
                 GREATEST(0, ${holdSeconds} - TIMESTAMPDIFF(SECOND, b.created_at, NOW())) AS hold_seconds_left
             FROM bookings b
             JOIN pitches pt ON pt.pitch_id = b.pitch_id
             LEFT JOIN pitch_categories pc ON pc.category_id = pt.category_id
+            LEFT JOIN users u ON u.user_id = b.customer_id
             WHERE b.booking_id = ?
             `,
             [bookingId],
@@ -582,6 +587,11 @@ export class MyBookingsService {
             end_time: booking.end_time,
             customer_note: booking.customer_note,
             created_at: booking.created_at,
+            customer: {
+                full_name: booking.customer_name ?? '',
+                phone_number: booking.customer_phone ?? null,
+            },
+            hold_minutes: this.holdMinutes,
             pitch: {
                 pitch_id: booking.pitch_id,
                 pitch_name: booking.pitch_name,

@@ -69,6 +69,7 @@ PAYMENT_BANK_NAME=
 PAYMENT_ACCOUNT_NUMBER=
 PAYMENT_ACCOUNT_NAME=
 PAYMENT_WEBHOOK_SECRET=
+PAYMENT_DEV_AUTOCONFIRM=true
 Quan trọng: DB_NAME phải khớp tên database bạn thực sự đã tạo/nạp SQL. Nếu tên schema trong MySQL khác football_pitch_db, hãy sửa lại giá trị này. DB_PORT phải là cổng MySQL thực tế; nếu bạn đã đổi cổng thì ghi cổng mới tại đây. DB_HOST=127.0.0.1 phù hợp khi MySQL có thể truy cập qua loopback trên cùng máy. Nếu MySQL ở máy khác, dùng hostname/IP tương ứng.
 
 Các biến thanh toán có thể để trống khi chỉ thử những phần không cần tích hợp ngân hàng. Chức năng QR/chuyển khoản và webhook không thể kiểm thử đầy đủ nếu chưa cấu hình thông tin thanh toán hợp lệ.

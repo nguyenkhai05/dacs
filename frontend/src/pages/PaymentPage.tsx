@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../features/auth/useAuth'
 import { apiFetch } from '../lib/api'
 
@@ -15,6 +15,7 @@ type Deposit = {
   qr_url: string
   seconds_remaining: number
   is_expired: boolean
+  dev_autoconfirm?: boolean
 }
 
 const money = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)} đ`
@@ -22,10 +23,12 @@ const money = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)
 export default function PaymentPage() {
   const { bookingId = '' } = useParams()
   const { token } = useAuth()
+  const navigate = useNavigate()
   const [deposit, setDeposit] = useState<Deposit | null>(null)
   const [loading, setLoading] = useState(true)
   const [checking, setChecking] = useState(false)
   const [error, setError] = useState('')
+  const [simulating, setSimulating] = useState(false)
 
   async function loadStatus(create = false) {
     if (!/^\d+$/.test(bookingId)) {
@@ -53,6 +56,45 @@ export default function PaymentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookingId, token])
 
+  const hasDeposit = deposit !== null
+  const paid = deposit?.payment_status === 'Successful'
+  const expired = deposit?.is_expired ?? false
+
+  // Tự hỏi lại trạng thái mỗi 3 giây cho tới khi đã nhận tiền hoặc hết hạn giữ chỗ.
+  useEffect(() => {
+    if (!hasDeposit || paid || expired) return
+    const timer = window.setInterval(async () => {
+      try {
+        const next = await apiFetch<Deposit>(`/payments/deposit/${encodeURIComponent(bookingId)}`, { token })
+        setDeposit(next)
+      } catch {
+        // Lỗi tạm thời (mất mạng...) thì lần sau thử lại.
+      }
+    }, 3000)
+    return () => window.clearInterval(timer)
+  }, [hasDeposit, paid, expired, bookingId, token])
+
+  // Đã nhận tiền cọc thì chuyển sang trang chi tiết đơn.
+  useEffect(() => {
+    if (!paid) return
+    const timer = window.setTimeout(() => navigate(`/bookings/${bookingId}`), 2000)
+    return () => window.clearTimeout(timer)
+  }, [paid, bookingId, navigate])
+
+  // CHỈ DÙNG KHI TEST: backend phải bật PAYMENT_DEV_AUTOCONFIRM=true.
+  async function simulatePayment() {
+    setSimulating(true)
+    try {
+      setError('')
+      await apiFetch(`/payments/deposit/${encodeURIComponent(bookingId)}/dev-confirm`, { method: 'POST', token })
+      await loadStatus(false)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Không thể giả lập thanh toán.')
+    } finally {
+      setSimulating(false)
+    }
+  }
+
   return (
     <main style={{ maxWidth: 760, margin: '40px auto', padding: '24px', color: '#18352b' }}>
       <Link to="/" style={{ color: '#168052', textDecoration: 'none' }}>← Về trang chủ</Link>
@@ -79,6 +121,12 @@ export default function PaymentPage() {
               <button type="button" disabled={checking} onClick={() => { setChecking(true); void loadStatus(false) }} style={{ border: 0, borderRadius: 9, padding: '12px 16px', background: '#168052', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
                 {checking ? 'Đang kiểm tra…' : 'Tôi đã chuyển khoản · Kiểm tra trạng thái'}
               </button>
+              {paid && <p style={{ color: '#168052', fontWeight: 700 }}>Đã nhận tiền cọc. Đang chuyển tới chi tiết đơn…</p>}
+              {deposit.dev_autoconfirm && !paid && (
+                <button type="button" disabled={simulating} onClick={() => void simulatePayment()} style={{ display: 'block', marginTop: 12, border: '2px dashed #c77700', borderRadius: 9, padding: '10px 14px', background: '#fff8e6', color: '#8a5300', fontWeight: 700, cursor: 'pointer' }}>
+                  {simulating ? 'Đang giả lập…' : '[DEV] Giả lập đã thanh toán'}
+                </button>
+              )}
             </div>
           </div>
         </>}

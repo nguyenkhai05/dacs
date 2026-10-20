@@ -44,6 +44,17 @@ export class PaymentsController {
         return this.paymentsService.getDeposit(bookingId, user);
     }
 
+    // CHỈ DÙNG KHI TEST: bật bằng PAYMENT_DEV_AUTOCONFIRM=true (luôn tắt ở production)
+    @Post('deposit/:bookingId/dev-confirm')
+    @HttpCode(200)
+    @UseGuards(JwtAuthGuard)
+    devConfirm(
+        @Param('bookingId', ParseIntPipe) bookingId: number,
+        @CurrentUser() user: AuthUser,
+    ) {
+        return this.paymentsService.devConfirm(bookingId, user);
+    }
+
     // Ngân hàng/nhà cung cấp gọi vào khi có tiền về (xác thực bằng secret)
     @Post('webhook/bank')
     @HttpCode(200)

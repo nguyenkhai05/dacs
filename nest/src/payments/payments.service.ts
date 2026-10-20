@@ -109,6 +109,17 @@ export class PaymentsService {
         return value;
     }
 
+    /**
+     * Chế độ DEV: cho phép "giả lập đã chuyển khoản" mà không cần webhook ngân hàng.
+     * Chỉ bật khi PAYMENT_DEV_AUTOCONFIRM=true VÀ NODE_ENV khác 'production'.
+     */
+    private get devAutoConfirmEnabled(): boolean {
+        return (
+            this.config.get<string>('PAYMENT_DEV_AUTOCONFIRM') === 'true' &&
+            this.config.get<string>('NODE_ENV') !== 'production'
+        );
+    }
+
     private get bank() {
         const bankId = this.config.get<string>('PAYMENT_BANK_ID');
         const accountNumber = this.config.get<string>('PAYMENT_ACCOUNT_NUMBER');
@@ -373,6 +384,46 @@ export class PaymentsService {
                 );
             }
         }
+    }
+
+    /**
+     * CHỈ DÙNG KHI TEST: xác nhận khoản cọc của đơn như thể ngân hàng đã báo có tiền.
+     * Đi qua confirmDeposit nên payment, invoice và booking được cập nhật đúng như thật.
+     * Khi chế độ dev tắt thì trả 404 như thể endpoint không tồn tại.
+     */
+    async devConfirm(bookingId: number, user: AuthUser): Promise<ConfirmResult> {
+        if (!this.devAutoConfirmEnabled) {
+            throw new NotFoundException();
+        }
+
+        const result = await this.database.transaction(async (connection) => {
+            const booking = await this.lockBooking(connection, bookingId);
+            this.assertCanAccess(booking, user);
+
+            const payment = await this.findDepositPayment(connection, bookingId);
+
+            if (!payment) {
+                throw new NotFoundException(
+                    'Đơn chưa có khoản thanh toán cọc. Hãy mở trang thanh toán trước',
+                );
+            }
+
+            return this.confirmDeposit(
+                connection,
+                bookingId,
+                Number(payment.amount),
+                user.sub,
+            );
+        });
+
+        if (!result.handled) {
+            throw new ConflictException(
+                `Không thể xác nhận thanh toán (${result.reason})`,
+            );
+        }
+
+        this.logger.warn(`[DEV] Đã giả lập thanh toán cọc cho đơn DS${bookingId}`);
+        return result;
     }
 
     /** Nhân viên/Admin xác nhận thủ công đã nhận tiền cọc. */
@@ -789,6 +840,7 @@ export class PaymentsService {
                 ? new Date(Date.now() + secondsLeft * 1000).toISOString()
                 : null,
             is_expired: isPending && secondsLeft <= 0,
+            dev_autoconfirm: this.devAutoConfirmEnabled,
         };
     }
 
